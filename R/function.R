@@ -1,4 +1,4 @@
-#' @title get_chrDf
+#' @title get_chrDfList
 #' @description
 #' Get all related ms2 features chromatogram information of the mth ms1 feature.
 #'
@@ -10,8 +10,8 @@
 #'
 #' @examples
 #' load("./test_data/swath_data.RData")
-#' get_chrDf(ndata = swath_data, m = 34)
-get_chrDf <- function(ndata, m){
+#' mchrDfList <- get_chrDfList(ndata = swath_data, m = 34)
+get_chrDfList <- function(ndata, m){
   spectra_ms1 <- xcms::spectra(ndata) %>%
     Spectra::filterMsLevel(1L)
   spectra_ms2 <- xcms::spectra(ndata) %>%
@@ -86,3 +86,16 @@ get_chrDf <- function(ndata, m){
   chrDfList <- list(ms1 = chrDfList_ms1, ms2 = chrDfList_ms2)
   return(chrDfList)
 }
+#' @title plot_chrDfList
+#'
+#' @param chrDfList
+#'
+#' @return
+#' @export
+#'
+#' @examples
+plot_chrDfList <- function(chrDfList){
+
+}
+
+
