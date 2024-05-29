@@ -135,17 +135,22 @@ plot_chrDfList <- function(chrDfList){
   feature_ms1_name <- names(chrDfList_ms1)
   chrDf_ms1 <- chrDfList_ms1[[1]]
   chrDfList_ms2 <- chrDfList$ms2
-  dfList <- lapply(1:length(chrDfList_ms2), function(i) {
-    df_tmp <- chrDfList_ms2[[i]]
-    df_tmp$level <- "2"
-    df_tmp$feature <- i
-    return(df_tmp)
-  })
+  if(is.null(chrDfList_ms2)) dfList <- list()
+  else{
+    dfList <- lapply(1:length(chrDfList_ms2), function(i) {
+      df_tmp <- chrDfList_ms2[[i]]
+      df_tmp$level <- "2"
+      df_tmp$feature <- i
+      return(df_tmp)
+    })
+  }
   df_tmp <- chrDf_ms1
   df_tmp$level <- "1"
   df_tmp$feature <- length(dfList) + 1
   dfList <- append(dfList, list(df_tmp))
   df <- purrr::list_rbind(dfList)
+  df <- df %>%
+    dplyr::arrange(level)
   group <- unique(df$level)
   group_number <- length(group)
   group_color <- RColorBrewer::brewer.pal(6, "Set1")[1:group_number]
@@ -157,5 +162,95 @@ plot_chrDfList <- function(chrDfList){
     ggplot2::scale_color_manual(values = group_color)
   return(p)
 }
+#' @title calCor_rt
+#' @description
+#' Calculate the retention time correlation of two chrDf
+#'
+#' @param chrDf1 chrDf1
+#' @param chrDf2 chrDf2
+#'
+#' @return A double .
+#' @export
+#'
+#' @examples
+#' load("./test_data/swath_data.RData")
+#' mchrDfList <- get_chrDfList(ndata = swath_data, m = 34)
+#' calCor_rt(chrDf1 = mchrDfList$ms1[[1]], chrDf2 = mchrDfList$ms2[[5]])
+calCor_rt <- function(chrDf1, chrDf2){
+  rt1 <- mean(chrDf1$rt)
+  rt2 <- mean(chrDf2$rt)
+  cor_rt <- round(exp(1) ^ -(abs(rt1 - rt2) / 12), 4)
+  return(cor_rt)
+}
+#' @title calCor_shape
+#' @description
+#' Calculate the peak correlation of two chrDf
+#'
+#' @param chrDf1 chrDf1
+#' @param chrDf2 chrDf2
+#'
+#' @return A double.
+#' @export
+#'
+#' @examples
+#' calCor_shape(chrDf1 = mchrDfList$ms1[[1]], chrDf2 = mchrDfList$ms2[[5]])
+calCor_shape <- function(chrDf1, chrDf2){
+  align_vectors <- function(A, B) {
+    # find apex
+    peak_A <- which.max(A)
+    peak_B <- which.max(B)
 
+    # length of two vector
+    left_len <- max(peak_A, peak_B) - 1
+    right_len <- max(length(A) - peak_A, length(B) - peak_B)
 
+    # new length
+    aligned_length <- left_len + right_len + 1
+    new_A <- rep(NA, aligned_length)
+    new_B <- rep(NA, aligned_length)
+
+    # alignment A
+    start_A <- left_len - (peak_A - 1) + 1
+    end_A <- start_A + length(A) - 1
+    new_A[start_A:end_A] <- A
+
+    # alignment B
+    start_B <- left_len - (peak_B - 1) + 1
+    end_B <- start_B + length(B) - 1
+    new_B[start_B:end_B] <- B
+
+    return(list(aligned_A = new_A, aligned_B = new_B))
+  }
+  int1 <- chrDf1$smooth_int
+  int2 <- chrDf2$smooth_int
+  intTmp <- align_vectors(A = int1, B = int2)
+  int1 <- intTmp[[1]];int2 <- intTmp[[2]]
+  cor_shape <- round(cor(int1, int2, method = "pearson", use = "pairwise.complete.obs"), 4)
+  return(cor_shape)
+}
+#' @title filterChrDf
+#' @description
+#' Filter less relevant ms2 features
+#'
+#' @param chrDfList A chrDfList contains ms1 and ms2 chrDf
+#'
+#' @return A new chrDfList.
+#' @export
+#'
+#' @examples
+#'mchrDfList <- get_chrDfList(ndata = swath_data, m = 38)
+#'plot_chrDfList(chrDfList = mchrDfList)
+#'mchrDfList_new <- filterChrDf(chrDfList = mchrDfList, weight_rt = 0.4, weight_shape = 0.6,st = 0.80)
+#'plot_chrDfList(chrDfList = mchrDfList_new)
+filterChrDf <- function(chrDfList, weight_rt = 0.4, weight_shape = 0.6, st = 0.8){
+  chrDfList_ms1 <- chrDfList$ms1
+  chrDf_ms1 <- chrDfList_ms1[[1]]
+  chrDfList_ms2 <- chrDfList$ms2
+  score <- sapply(1:length(chrDfList_ms2), function(i) {
+    cor_rt <- calCor_rt(chrDf1 = chrDf_ms1, chrDf2 = chrDfList_ms2[[i]])
+    cor_shape <- calCor_shape(chrDf1 = chrDf_ms1, chrDf2 = chrDfList_ms2[[i]])
+    cor_both <- weight_rt * cor_rt + weight_shape * cor_shape
+  })
+  chrDfList_ms2 <- chrDfList_ms2[which(score > st)]
+  return(list(ms1 = chrDfList_ms1, ms2 = chrDfList_ms2))
+}
