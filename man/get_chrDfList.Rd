@@ -4,12 +4,14 @@
 \alias{get_chrDfList}
 \title{get_chrDfList}
 \usage{
-get_chrDfList(ndata, m)
+get_chrDfList(ndata, m, smooth = TRUE)
 }
 \arguments{
 \item{ndata}{nth sample data.}
 
-\item{m}{mth feature}
+\item{m}{mth feature.}
+
+\item{smooth}{Smoothing or not.}
 }
 \value{
 A list contains chrDf which belongs to mth ms1 feature.
