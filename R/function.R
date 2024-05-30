@@ -3,7 +3,8 @@
 #' Get all related ms2 features chromatogram information of the mth ms1 feature.
 #'
 #' @param ndata nth sample data.
-#' @param m mth feature
+#' @param m mth feature.
+#' @param smooth Smoothing or not.
 #'
 #' @return A list contains chrDf which belongs to mth ms1 feature.
 #' @export
@@ -11,7 +12,7 @@
 #' @examples
 #' load("./test_data/swath_data.RData")
 #' mchrDfList <- get_chrDfList(ndata = swath_data, m = 34)
-get_chrDfList <- function(ndata, m){
+get_chrDfList <- function(ndata, m, smooth = TRUE){
   spectra_ms1 <- xcms::spectra(ndata) %>%
     Spectra::filterMsLevel(1L)
   spectra_ms2 <- xcms::spectra(ndata) %>%
@@ -58,7 +59,8 @@ get_chrDfList <- function(ndata, m){
           return(peakDf)
         }
       }))
-      chrDf_i$smooth_int <- smoothMean(chrDf_i$intensity, size = 3)
+      if(smooth) chrDf_i$smooth_int <- smoothMean(chrDf_i$intensity, size = 3)
+      else chrDf_i$smooth_int <- chrDf_i$intensity
       return(chrDf_i)
     }
     chrDfList_ms2 <- lapply(1:nrow(mfeatureTable_ms2), function(i) {
@@ -82,7 +84,8 @@ get_chrDfList <- function(ndata, m){
       return(peakDf)
     }
   }))
-  chrDf_ms1$smooth_int <- smoothMean(chrDf_ms1$intensity, size = 3)
+  if(smooth) chrDf_ms1$smooth_int <- smoothMean(chrDf_ms1$intensity, size = 3)
+  else chrDf_ms1$smooth_int <- chrDf_ms1$intensity
   chrDfList_ms1 <- list(chrDf_ms1)
   names(chrDfList_ms1) <- mfeatureTable_ms1$feature_id
   chrDfList <- list(ms1 = chrDfList_ms1, ms2 = chrDfList_ms2)
@@ -253,4 +256,50 @@ filterChrDf <- function(chrDfList, weight_rt = 0.4, weight_shape = 0.6, st = 0.8
   })
   chrDfList_ms2 <- chrDfList_ms2[which(score > st)]
   return(list(ms1 = chrDfList_ms1, ms2 = chrDfList_ms2))
+}
+#' @title chrDfList2spectra
+#' @description
+#' Transfor chrDfList to a Spectra object
+#'
+#' @param chrDfList chrDfList
+#' @param ndata nth sample data.
+#'
+#' @return A Spectra object.
+#' @export
+#'
+#' @examples
+#' chrDfList2spectra(chrDfList = mchrDfList_new, ndata = swath_data)
+chrDfList2spectra <- function(chrDfList, ndata){
+  featureTable <- dplyr::as_tibble(cbind(xcms::chromPeaks(ndata),
+                                         xcms::chromPeakData(ndata)),
+                                   rownames = "feature_id")
+  featureTable_ms1 <- featureTable %>%
+    dplyr::filter(ms_level == 1)
+  featureTable_ms2 <- featureTable %>%
+    dplyr::filter(ms_level == 2)
+  featureName_ms1 <- names(chrDfList$ms1)
+  featureName_ms2 <- names(chrDfList$ms2)
+  mfeatureTable_ms1 <- featureTable_ms1[featureTable_ms1$feature_id == featureName_ms1, ]
+  newfeatureTable_ms2 <- featureTable_ms2[featureTable_ms2$feature_id %in% featureName_ms2, ]
+  spd <- dplyr::tibble(msLevel = 2L, rtime = mfeatureTable_ms1$rt)
+  spd$mz <- list(c(mfeatureTable_ms1$mz, newfeatureTable_ms2$mz))
+  spd$intensity <- list(c(mfeatureTable_ms1$maxo, newfeatureTable_ms2$maxo))
+  sp <- Spectra::Spectra(spd)
+  return(sp)
+}
+#' @title sp2spMat
+#' @description
+#' Transformer a Spectra object to spMat.
+#'
+#' @param sp A Spectra object
+#'
+#' @return A spMat
+#' @export
+#'
+#' @examples
+#' sp2spMat(sp = sp_ms2)
+sp2spMat <- function(sp){
+  spMat <- Spectra::peaksData(sp)[[1]]
+  if(nrow(spMat) != 1) spMat <- spMat[order(spMat[, 1]), ]
+  return(spMat)
 }

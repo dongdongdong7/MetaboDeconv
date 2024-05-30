@@ -3,6 +3,7 @@
 export("%>%")
 export(calCor_rt)
 export(calCor_shape)
+export(chrDfList2spectra)
 export(filterChrDf)
 export(get_chrDfList)
 export(plot_chrDfList)

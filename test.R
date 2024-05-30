@@ -3,6 +3,10 @@ devtools::document()
 # Load XcmsExperiment
 load("./test_data/swath_data.RData")
 load("./test_data/swath_spectra.RData")
+fenamiphos <- Spectra::Spectra(
+  system.file("mgf", "metlin-72445.mgf", package = "xcms"),
+  source = MsBackendMgf::MsBackendMgf())
+fenamiphos_spMat <- sp2spMat(fenamiphos[2])
 # One sample
 swath_data # ndata 第n个样本
 swath_spectra
@@ -16,10 +20,25 @@ featureTable_ms2 <- featureTable %>%
   dplyr::filter(ms_level == 2)
 
 fenamiphos_mz <- 304.113077
-mchrDfList <- get_chrDfList(ndata = swath_data, m = 34)
+fenamiphos_ms1_peak <- xcms::chromPeaks(swath_data, mz = fenamiphos_mz, ppm = 2)
+mchrDfList <- get_chrDfList(ndata = swath_data, m = 34, smooth = FALSE)
 plot_chrDfList(chrDfList = mchrDfList)
-
-
-
+mchrDfList_new <- filterChrDf(chrDfList = mchrDfList, weight_rt = 0.7, weight_shape = 0.3,st = 0.80)
+calCor_shape(mchrDfList$ms1[[1]], mchrDfList$ms2[["CP223"]]) # CP221, CP223
+plot_chrDfList(chrDfList = mchrDfList_new)
+test <- mchrDfList
+test$ms2 <- test$ms2["CP223"]
+plot_chrDfList(test)
+sp_ms2 <- chrDfList2spectra(chrDfList = mchrDfList_new, ndata = swath_data)
+Spectra::plotSpectra(sp_ms2)
+sp_ms2_spMat <- sp2spMat(sp_ms2)
+sp_ms2_spMat <- MetaboSpectra::clean_spMat(sp_ms2_spMat)
+fenamiphos_swath_spectrum <- swath_spectra[
+  swath_spectra$peak_id == rownames(fenamiphos_ms1_peak)]
+Spectra::plotSpectra(fenamiphos_swath_spectrum)
+fenamiphos_swath_spectrum_spMat <- sp2spMat(fenamiphos_swath_spectrum)
+MetaboSpectra::plotComparableSpectra(sp_ms2_spMat, fenamiphos_swath_spectrum_spMat)
+MetaboSpectra::plotComparableSpectra(sp_ms2_spMat, fenamiphos_spMat)
 # Multi sample
 load("./test_data/data_MSE.RData")
+
