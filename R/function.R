@@ -1,96 +1,3 @@
-#' @title get_chrDfList
-#' @description
-#' Get all related ms2 features chromatogram information of the mth ms1 feature.
-#'
-#' @param ndata nth sample data.
-#' @param m mth feature.
-#' @param smooth Smoothing or not.
-#'
-#' @return A list contains chrDf which belongs to mth ms1 feature.
-#' @export
-#'
-#' @examples
-#' load("./test_data/swath_data.RData")
-#' mchrDfList <- get_chrDfList(ndata = swath_data, m = 34)
-get_chrDfList <- function(ndata, m, smooth = TRUE){
-  spectra_ms1 <- xcms::spectra(ndata) %>%
-    Spectra::filterMsLevel(1L)
-  spectra_ms2 <- xcms::spectra(ndata) %>%
-    Spectra::filterMsLevel(2L)
-  featureTable <- dplyr::as_tibble(cbind(xcms::chromPeaks(ndata),
-                                         xcms::chromPeakData(ndata)),
-                                   rownames = "feature_id")
-  featureTable_ms1 <- featureTable %>%
-    dplyr::filter(ms_level == 1)
-  featureTable_ms2 <- featureTable %>%
-    dplyr::filter(ms_level == 2)
-
-  mfeatureTable_ms1 <- featureTable_ms1[m, ]
-  peakWidth <- mfeatureTable_ms1$rtmax - mfeatureTable_ms1$rtmin
-  rtRange <- c(mfeatureTable_ms1$rt - 2.5 * peakWidth,
-               mfeatureTable_ms1$rt + 2.5 * peakWidth)
-  mfeatureTable_ms2 <- featureTable_ms2 %>%
-    dplyr::filter(rt >= rtRange[1] & rt <= rtRange[2]) %>%
-    dplyr::filter(mfeatureTable_ms1$mz >= isolationWindowLowerMz & mfeatureTable_ms1$mz <= isolationWindowUpperMz)
-  # remove ms2 feature mz >= precursorMz
-  mfeatureTable_ms2 <- mfeatureTable_ms2 %>%
-    dplyr::filter(mzmax < mfeatureTable_ms1$mzmin)
-  # remove noise
-  mfeatureTable_ms2 <- mfeatureTable_ms2 %>%
-    dplyr::filter(maxo > max(mfeatureTable_ms2$maxo) * 0.05)
-  if(nrow(mfeatureTable_ms2) == 0){
-    chrDfList_ms2 <- NULL
-  }else{
-    loop <- function(i){
-      mfeatureTable_ms2_i <- mfeatureTable_ms2[i, ]
-      mfeatureSpectra_ms2_i <- spectra_ms2 %>%
-        Spectra::filterRt(c(mfeatureTable_ms2_i$rtmin, mfeatureTable_ms2_i$rtmax)) %>%
-        Spectra::filterMzRange(mz = c(mfeatureTable_ms2_i$mzmin, mfeatureTable_ms2_i$mzmax), keep = TRUE)
-      rtSpectra_i <- Spectra::rtime(mfeatureSpectra_ms2_i)
-      peaksData_i <- Spectra::peaksData(mfeatureSpectra_ms2_i)
-      chrDf_i <- purrr::list_rbind(lapply(1:length(rtSpectra_i), function(j) {
-        rt_tmp <- rtSpectra_i[j]
-        peakMat <- peaksData_i[[j]]
-        if(nrow(peakMat) == 0){
-          return(NULL)
-        }else{
-          peakDf <- as.data.frame(peakMat)
-          peakDf$rt <- rt_tmp
-          return(peakDf)
-        }
-      }))
-      if(smooth) chrDf_i$smooth_int <- smoothMean(chrDf_i$intensity, size = 3)
-      else chrDf_i$smooth_int <- chrDf_i$intensity
-      return(chrDf_i)
-    }
-    chrDfList_ms2 <- lapply(1:nrow(mfeatureTable_ms2), function(i) {
-      loop(i)
-    })
-    names(chrDfList_ms2) <- mfeatureTable_ms2$feature_id
-  }
-  mfeatureSpectra_ms1 <- spectra_ms1 %>%
-    Spectra::filterRt(c(mfeatureTable_ms1$rtmin, mfeatureTable_ms1$rtmax)) %>%
-    Spectra::filterMzRange(mz = c(mfeatureTable_ms1$mzmin, mfeatureTable_ms1$mzmax), keep = TRUE)
-  rtSpectra <- Spectra::rtime(mfeatureSpectra_ms1)
-  peaksData <- Spectra::peaksData(mfeatureSpectra_ms1)
-  chrDf_ms1 <- purrr::list_rbind(lapply(1:length(rtSpectra), function(j) {
-    rt_tmp <- rtSpectra[j]
-    peakMat <- peaksData[[j]]
-    if(nrow(peakMat) == 0){
-      return(NULL)
-    }else{
-      peakDf <- as.data.frame(peakMat)
-      peakDf$rt <- rt_tmp
-      return(peakDf)
-    }
-  }))
-  if(smooth) chrDf_ms1$smooth_int <- smoothMean(chrDf_ms1$intensity, size = 3)
-  else chrDf_ms1$smooth_int <- chrDf_ms1$intensity
-  chrDfList_ms1 <- list(chrDf_ms1)
-  names(chrDfList_ms1) <- mfeatureTable_ms1$feature_id
-  chrDfList <- list(ms1 = chrDfList_ms1, ms2 = chrDfList_ms2)
-  return(chrDfList)
-}
 #' @title smoothMean
 #' @description
 #' Smooth function using mean.
@@ -121,6 +28,101 @@ smoothMean <- function(int, size = 3){
     smooth_int <- mean(y)
   })
   return(smooth_int)
+}
+#' @title get_chrDfList
+#' @description
+#' Get all related ms2 features chromatogram information of the mth ms1 feature.
+#'
+#' @param ndata nth sample data.
+#' @param m mth feature.
+#' @param smooth Smoothing or not.
+#' @param noise noise.
+#'
+#' @return A list contains chrDf which belongs to mth ms1 feature.
+#' @export
+#'
+#' @examples
+#' load("./test_data/swath_data.RData")
+#' mchrDfList <- get_chrDfList(ndata = swath_data, m = 34)
+get_chrDfList <- function(ndata, m, smooth = TRUE, noise = 10){
+  spectra_ms1 <- xcms::spectra(ndata) %>%
+    Spectra::filterMsLevel(1L)
+  spectra_ms2 <- xcms::spectra(ndata) %>%
+    Spectra::filterMsLevel(2L)
+  featureTable <- dplyr::as_tibble(cbind(xcms::chromPeaks(ndata),
+                                         xcms::chromPeakData(ndata)),
+                                   rownames = "feature_id")
+  featureTable_ms1 <- featureTable %>%
+    dplyr::filter(ms_level == 1)
+  featureTable_ms2 <- featureTable %>%
+    dplyr::filter(ms_level == 2)
+
+  mfeatureTable_ms1 <- featureTable_ms1[m, ]
+  peakWidth <- mfeatureTable_ms1$rtmax - mfeatureTable_ms1$rtmin
+  rtRange <- c(mfeatureTable_ms1$rt - 2.5 * peakWidth,
+               mfeatureTable_ms1$rt + 2.5 * peakWidth)
+  mfeatureTable_ms2 <- featureTable_ms2 %>%
+    dplyr::filter(rt >= rtRange[1] & rt <= rtRange[2]) %>%
+    dplyr::filter(mfeatureTable_ms1$mz >= isolationWindowLowerMz & mfeatureTable_ms1$mz <= isolationWindowUpperMz)
+  # remove ms2 feature mz >= precursorMz
+  mfeatureTable_ms2 <- mfeatureTable_ms2 %>%
+    dplyr::filter(mzmax < mfeatureTable_ms1$mzmin)
+  # remove noise
+  mfeatureTable_ms2 <- mfeatureTable_ms2 %>%
+    dplyr::filter(maxo > max(mfeatureTable_ms2$maxo) * 0.05)
+  if(nrow(mfeatureTable_ms2) == 0){
+    chrDfList_ms2 <- NULL
+  }else{
+    chrDfList_ms2 <- lapply(1:nrow(mfeatureTable_ms2), function(i) {
+      mfeatureTable_ms2_i <- mfeatureTable_ms2[i, ]
+      mfeatureSpectra_ms2_i <- spectra_ms2 %>%
+        Spectra::filterRt(c(mfeatureTable_ms2_i$rtmin, mfeatureTable_ms2_i$rtmax)) %>%
+        Spectra::filterMzRange(mz = c(mfeatureTable_ms2_i$mzmin, mfeatureTable_ms2_i$mzmax), keep = TRUE)
+      rtSpectra_i <- Spectra::rtime(mfeatureSpectra_ms2_i)
+      peaksData_i <- Spectra::peaksData(mfeatureSpectra_ms2_i)
+      chrDf_i <- purrr::list_rbind(lapply(1:length(rtSpectra_i), function(j) {
+        rt_tmp <- rtSpectra_i[j]
+        peakMat <- peaksData_i[[j]]
+        if(nrow(peakMat) == 0){
+          return(NULL)
+        }else{
+          peakDf <- as.data.frame(peakMat)
+          peakDf$rt <- rt_tmp
+          return(peakDf)
+        }
+      }))
+      chrDf_i <- chrDf_i %>%
+        dplyr::filter(intensity > noise)
+      if(smooth) chrDf_i$smooth_int <- smoothMean(chrDf_i$intensity, size = 3)
+      else chrDf_i$smooth_int <- chrDf_i$intensity
+      return(chrDf_i)
+    })
+    names(chrDfList_ms2) <- mfeatureTable_ms2$feature_id
+  }
+  mfeatureSpectra_ms1 <- spectra_ms1 %>%
+    Spectra::filterRt(c(mfeatureTable_ms1$rtmin, mfeatureTable_ms1$rtmax)) %>%
+    Spectra::filterMzRange(mz = c(mfeatureTable_ms1$mzmin, mfeatureTable_ms1$mzmax), keep = TRUE)
+  rtSpectra <- Spectra::rtime(mfeatureSpectra_ms1)
+  peaksData <- Spectra::peaksData(mfeatureSpectra_ms1)
+  chrDf_ms1 <- purrr::list_rbind(lapply(1:length(rtSpectra), function(j) {
+    rt_tmp <- rtSpectra[j]
+    peakMat <- peaksData[[j]]
+    if(nrow(peakMat) == 0){
+      return(NULL)
+    }else{
+      peakDf <- as.data.frame(peakMat)
+      peakDf$rt <- rt_tmp
+      return(peakDf)
+    }
+  }))
+  chrDf_ms1 <- chrDf_ms1 %>%
+    dplyr::filter(intensity > noise)
+  if(smooth) chrDf_ms1$smooth_int <- smoothMean(chrDf_ms1$intensity, size = 3)
+  else chrDf_ms1$smooth_int <- chrDf_ms1$intensity
+  chrDfList_ms1 <- list(chrDf_ms1)
+  names(chrDfList_ms1) <- mfeatureTable_ms1$feature_id
+  chrDfList <- list(ms1 = chrDfList_ms1, ms2 = chrDfList_ms2)
+  return(chrDfList)
 }
 #' @title plot_chrDfList
 #' @description
@@ -180,9 +182,13 @@ plot_chrDfList <- function(chrDfList){
 #' mchrDfList <- get_chrDfList(ndata = swath_data, m = 34)
 #' calCor_rt(chrDf1 = mchrDfList$ms1[[1]], chrDf2 = mchrDfList$ms2[[5]])
 calCor_rt <- function(chrDf1, chrDf2){
+  deltaRt <- mean(c(diff(chrDf1$rt), diff(chrDf2$rt)))
   rt1 <- mean(chrDf1$rt)
   rt2 <- mean(chrDf2$rt)
-  cor_rt <- round(exp(1) ^ -(abs(rt1 - rt2) / 12), 4)
+  sa <- abs(rt1 - rt2) / deltaRt
+  # exp(1) ^ -abs(rt1 - rt2)
+  # exp(1) ^ -sa
+  cor_rt <- round(exp(1) ^ -abs(rt1 - rt2), 4)
   return(cor_rt)
 }
 #' @title calCor_shape
@@ -226,6 +232,10 @@ calCor_shape <- function(chrDf1, chrDf2){
   }
   int1 <- chrDf1$smooth_int
   int2 <- chrDf2$smooth_int
+  if(all(diff(int2) > 0) | all(diff(int2) < 0)){
+    warning("This feature is detected as incremental or decremental!")
+    return(0)
+  }
   intTmp <- align_vectors(A = int1, B = int2)
   int1 <- intTmp[[1]];int2 <- intTmp[[2]]
   cor_shape <- round(cor(int1, int2, method = "pearson", use = "pairwise.complete.obs"), 4)
@@ -302,4 +312,79 @@ sp2spMat <- function(sp){
   spMat <- Spectra::peaksData(sp)[[1]]
   if(nrow(spMat) != 1) spMat <- spMat[order(spMat[, 1]), ]
   return(spMat)
+}
+#' @title spMat2sp
+#' @description
+#' Transfor spMat 2 sp.
+#'
+#' @param spMat A spMat.
+#'
+#' @return A Spectra object.
+#' @export
+#'
+#' @examples
+#' spMat2sp(sp_ms2_spMat, msLevel = 2L, rtime = 20)
+spMat2sp <- function(spMat, msLevel = 1L, rtime = 0){
+  spd <- S4Vectors::DataFrame(msLevel = msLevel, rtime = rtime)
+  spd$mz <- list(spMat[, "mz"])
+  spd$intensity <- list(spMat[,"intensity"])
+  return(Spectra::Spectra(spd))
+}
+#' @title Deconv4ndata
+#' @description
+#' Deconv function for nth sample.
+#'
+#'
+#' @param ndata nth sample data.
+#' @param weight_rt weight_rt.
+#' @param weight_shape weight_shape.
+#' @param st socre threshold.
+#' @param thread prarllel thread.
+#'
+#' @return A new featureTable_ms1 with ms2 spectra.
+#' @export
+#'
+#' @examples
+#' Deconv4ndata(ndata = swath_data)
+Deconv4ndata <- function(ndata, weight_rt = 0.5, weight_shape = 0.5, st = 0.7, thread = 1){
+  featureTable <- dplyr::as_tibble(cbind(xcms::chromPeaks(ndata),
+                                         xcms::chromPeakData(ndata)),
+                                   rownames = "feature_id")
+  featureTable_ms1 <- featureTable %>%
+    dplyr::filter(ms_level == 1)
+  featureTable_ms2 <- featureTable %>%
+    dplyr::filter(ms_level == 2)
+  loop_Deconv4ndata <- function(m){
+    mchrDfList <- get_chrDfList(ndata = ndata, m = m, smooth = TRUE, noise = 10)
+    mchrDfList_new <- filterChrDf(chrDfList = mchrDfList, weight_rt = weight_rt, weight_shape = weight_shape,st = st)
+    if(is.null(mchrDfList_new$ms2) | length(mchrDfList_new$ms2) == 0) return(NULL)
+    sp_ms2 <- chrDfList2spectra(chrDfList = mchrDfList_new, ndata = ndata)
+    sp_ms2_spMat <- sp2spMat(sp_ms2)
+    sp_ms2_spMat <- MetaboSpectra::clean_spMat(sp_ms2_spMat)
+    sp <- spMat2sp(sp_ms2_spMat, msLevel = 2L, rtime = featureTable_ms1[m, ]$rt)
+    return(sp)
+  }
+  pb <- utils::txtProgressBar(max = nrow(featureTable_ms1), style = 3)
+  if(thread == 1){
+    spectraList <- lapply(1:nrow(featureTable_ms1), function(m) {
+      utils::setTxtProgressBar(pb, m)
+      loop_Deconv4ndata(m)
+    })
+  }else if(thread > 1){
+    cl <- snow::makeCluster(thread)
+    doSNOW::registerDoSNOW(cl)
+    opts <- list(progress = function(n) utils::setTxtProgressBar(pb,
+                                                                 n))
+    envir <- environment(get_chrDfList)
+    parallel::clusterExport(cl, varlist = ls(envir), envir = envir)
+    envir <- environment(loop_Deconv4ndata)
+    spectraList <- foreach::`%dopar%`(foreach::foreach(m = 1:nrow(featureTable_ms1),
+                                                       .packages = c("dplyr"),
+                                                       .options.snow = opts),
+                                      loop_Deconv4ndata(m))
+    snow::stopCluster(cl)
+    gc()
+  }else stop("thread is wrong!")
+  featureTable_ms1$spectra <- spectraList
+  return(featureTable_ms1)
 }
