@@ -37,6 +37,8 @@ smoothMean <- function(int, size = 3){
 #' @param m mth feature.
 #' @param smooth Smoothing or not.
 #' @param noise noise.
+#' @param factor factor * peakwidth -> rtRange
+#' @param sn sn threshold.
 #'
 #' @return A list contains chrDf which belongs to mth ms1 feature.
 #' @export
@@ -44,7 +46,7 @@ smoothMean <- function(int, size = 3){
 #' @examples
 #' load("./test_data/swath_data.RData")
 #' mchrDfList <- get_chrDfList(ndata = swath_data, m = 34)
-get_chrDfList <- function(ndata, m, smooth = TRUE, noise = 10){
+get_chrDfList <- function(ndata, m, smooth = TRUE, noise = 10, factor = 1.5, sn = 10, maxo = 1000){
   spectra_ms1 <- xcms::spectra(ndata) %>%
     Spectra::filterMsLevel(1L)
   spectra_ms2 <- xcms::spectra(ndata) %>%
@@ -58,9 +60,10 @@ get_chrDfList <- function(ndata, m, smooth = TRUE, noise = 10){
     dplyr::filter(ms_level == 2)
 
   mfeatureTable_ms1 <- featureTable_ms1[m, ]
+  if(mfeatureTable_ms1$sn < sn | mfeatureTable_ms1$maxo < maxo) return(NULL)
   peakWidth <- mfeatureTable_ms1$rtmax - mfeatureTable_ms1$rtmin
-  rtRange <- c(mfeatureTable_ms1$rt - 2.5 * peakWidth,
-               mfeatureTable_ms1$rt + 2.5 * peakWidth)
+  rtRange <- c(mfeatureTable_ms1$rt - factor * peakWidth,
+               mfeatureTable_ms1$rt + factor * peakWidth)
   mfeatureTable_ms2 <- featureTable_ms2 %>%
     dplyr::filter(rt >= rtRange[1] & rt <= rtRange[2]) %>%
     dplyr::filter(mfeatureTable_ms1$mz >= isolationWindowLowerMz & mfeatureTable_ms1$mz <= isolationWindowUpperMz)
@@ -123,49 +126,6 @@ get_chrDfList <- function(ndata, m, smooth = TRUE, noise = 10){
   names(chrDfList_ms1) <- mfeatureTable_ms1$feature_id
   chrDfList <- list(ms1 = chrDfList_ms1, ms2 = chrDfList_ms2)
   return(chrDfList)
-}
-#' @title plot_chrDfList
-#' @description
-#' plot_chrDfList
-#'
-#' @param chrDfList chrDfList
-#'
-#' @return ggplot object
-#' @export
-#'
-#' @examples
-#' plot_chrDfList(chrDfList = mchrDfList)
-plot_chrDfList <- function(chrDfList){
-  chrDfList_ms1 <- chrDfList$ms1
-  feature_ms1_name <- names(chrDfList_ms1)
-  chrDf_ms1 <- chrDfList_ms1[[1]]
-  chrDfList_ms2 <- chrDfList$ms2
-  if(is.null(chrDfList_ms2)) dfList <- list()
-  else{
-    dfList <- lapply(1:length(chrDfList_ms2), function(i) {
-      df_tmp <- chrDfList_ms2[[i]]
-      df_tmp$level <- "2"
-      df_tmp$feature <- i
-      return(df_tmp)
-    })
-  }
-  df_tmp <- chrDf_ms1
-  df_tmp$level <- "1"
-  df_tmp$feature <- length(dfList) + 1
-  dfList <- append(dfList, list(df_tmp))
-  df <- purrr::list_rbind(dfList)
-  df <- df %>%
-    dplyr::arrange(level)
-  group <- unique(df$level)
-  group_number <- length(group)
-  group_color <- RColorBrewer::brewer.pal(6, "Set1")[1:group_number]
-  names(group_color) <- group
-  p <- ggplot2::ggplot(data = df, mapping = ggplot2::aes(x = rt, group = feature, color = level)) +
-    ggplot2::geom_line(mapping = ggplot2::aes(y = smooth_int), linewidth = 1) +
-    ggplot2::theme_bw() +
-    ggplot2::labs(x = "Retention Time", y = "Intensity") +
-    ggplot2::scale_color_manual(values = group_color)
-  return(p)
 }
 #' @title calCor_rt
 #' @description
@@ -230,8 +190,8 @@ calCor_shape <- function(chrDf1, chrDf2){
 
     return(list(aligned_A = new_A, aligned_B = new_B))
   }
-  int1 <- chrDf1$smooth_int
-  int2 <- chrDf2$smooth_int
+  int1 <- chrDf1$intensity
+  int2 <- chrDf2$intensity
   if(all(diff(int2) > 0) | all(diff(int2) < 0)){
     warning("This feature is detected as incremental or decremental!")
     return(0)
@@ -240,32 +200,6 @@ calCor_shape <- function(chrDf1, chrDf2){
   int1 <- intTmp[[1]];int2 <- intTmp[[2]]
   cor_shape <- round(cor(int1, int2, method = "pearson", use = "pairwise.complete.obs"), 4)
   return(cor_shape)
-}
-#' @title filterChrDf
-#' @description
-#' Filter less relevant ms2 features
-#'
-#' @param chrDfList A chrDfList contains ms1 and ms2 chrDf
-#'
-#' @return A new chrDfList.
-#' @export
-#'
-#' @examples
-#'mchrDfList <- get_chrDfList(ndata = swath_data, m = 38)
-#'plot_chrDfList(chrDfList = mchrDfList)
-#'mchrDfList_new <- filterChrDf(chrDfList = mchrDfList, weight_rt = 0.4, weight_shape = 0.6,st = 0.80)
-#'plot_chrDfList(chrDfList = mchrDfList_new)
-filterChrDf <- function(chrDfList, weight_rt = 0.4, weight_shape = 0.6, st = 0.8){
-  chrDfList_ms1 <- chrDfList$ms1
-  chrDf_ms1 <- chrDfList_ms1[[1]]
-  chrDfList_ms2 <- chrDfList$ms2
-  score <- sapply(1:length(chrDfList_ms2), function(i) {
-    cor_rt <- calCor_rt(chrDf1 = chrDf_ms1, chrDf2 = chrDfList_ms2[[i]])
-    cor_shape <- calCor_shape(chrDf1 = chrDf_ms1, chrDf2 = chrDfList_ms2[[i]])
-    cor_both <- weight_rt * cor_rt + weight_shape * cor_shape
-  })
-  chrDfList_ms2 <- chrDfList_ms2[which(score > st)]
-  return(list(ms1 = chrDfList_ms1, ms2 = chrDfList_ms2))
 }
 #' @title chrDfList2spectra
 #' @description
@@ -287,6 +221,7 @@ chrDfList2spectra <- function(chrDfList, ndata){
     dplyr::filter(ms_level == 1)
   featureTable_ms2 <- featureTable %>%
     dplyr::filter(ms_level == 2)
+  if(length(chrDfList$ms2) == 0) return(NULL)
   featureName_ms1 <- names(chrDfList$ms1)
   featureName_ms2 <- names(chrDfList$ms2)
   mfeatureTable_ms1 <- featureTable_ms1[featureTable_ms1$feature_id == featureName_ms1, ]
@@ -340,51 +275,70 @@ spMat2sp <- function(spMat, msLevel = 1L, rtime = 0){
 #' @param weight_shape weight_shape.
 #' @param st socre threshold.
 #' @param thread prarllel thread.
+#' @param chromPeakTable_ms1 1 level chromPeakTable which have been filtered.(must be generate by ndata)
+#' @param chromPeakTable_ms2 2 level chromPeakTable which have been filtered.(must be generate by ndata)
+#' @param noise noise value.
+#' @param smooth whether or not smooth.
+#' @param size smoothMean size.
+#' @param factor factor * peakwidth -> rtRange.
 #'
 #' @return A new featureTable_ms1 with ms2 spectra.
 #' @export
 #'
 #' @examples
-#' Deconv4ndata(ndata = swath_data)
-Deconv4ndata <- function(ndata, weight_rt = 0.5, weight_shape = 0.5, st = 0.7, thread = 1){
-  featureTable <- dplyr::as_tibble(cbind(xcms::chromPeaks(ndata),
-                                         xcms::chromPeakData(ndata)),
-                                   rownames = "feature_id")
-  featureTable_ms1 <- featureTable %>%
-    dplyr::filter(ms_level == 1)
-  featureTable_ms2 <- featureTable %>%
-    dplyr::filter(ms_level == 2)
-  loop_Deconv4ndata <- function(m){
-    mchrDfList <- get_chrDfList(ndata = ndata, m = m, smooth = TRUE, noise = 10)
+#' load("./test_data/swath_data.RData")
+#' chromPeakTable <- dplyr::as_tibble(cbind(xcms::chromPeaks(swath_data),
+#'                                         xcms::chromPeakData(swath_data)),
+#'                                   rownames = "cpid")
+#' chromPeakTable_ms1 <- chromPeakTable %>%
+#'  dplyr::filter(ms_level == 1)
+#' chromPeakTable_ms2 <- chromPeakTable %>%
+#'  dplyr::filter(ms_level == 2)
+#' # filter chromPeakTable
+#' chromPeakTable_ms1 <- chromPeakTable_ms1 %>%
+#'   dplyr::filter(maxo >= 1000)
+#' chromPeakTable_ms2 <- chromPeakTable_ms2 %>%
+#'   dplyr::filter(maxo > 100)
+#' chromPeakTable_ms1 <- Deconv4ndata(ndata = swath_data, chromPeakTable_ms1 = chromPeakTable_ms1, chromPeakTable_ms2 = chromPeakTable_ms2)
+Deconv4ndata <- function(ndata, chromPeakTable_ms1,chromPeakTable_ms2,
+                         noise = 10, smooth = TRUE, size = 3, factor = 0.5,
+                         weight_rt = 0.5, weight_shape = 0.5, st = 0.8,
+                         thread = 1){
+  loop <- function(x){
+    mchrDfList <- generate_chrDfList(ndata = ndata, cpid = x,
+                                     chromPeakTable_ms1 = chromPeakTable_ms1, chromPeakTable_ms2 = chromPeakTable_ms2,
+                                     noise = noise, smooth = smooth, size = size, factor = factor)
+    if(is.null(mchrDfList)) return(NULL)
     mchrDfList_new <- filterChrDf(chrDfList = mchrDfList, weight_rt = weight_rt, weight_shape = weight_shape,st = st)
     if(is.null(mchrDfList_new$ms2) | length(mchrDfList_new$ms2) == 0) return(NULL)
     sp_ms2 <- chrDfList2spectra(chrDfList = mchrDfList_new, ndata = ndata)
-    sp_ms2_spMat <- sp2spMat(sp_ms2)
-    sp_ms2_spMat <- MetaboSpectra::clean_spMat(sp_ms2_spMat)
-    sp <- spMat2sp(sp_ms2_spMat, msLevel = 2L, rtime = featureTable_ms1[m, ]$rt)
-    return(sp)
+    return(sp_ms2)
   }
-  pb <- utils::txtProgressBar(max = nrow(featureTable_ms1), style = 3)
+  pb <- utils::txtProgressBar(max = nrow(chromPeakTable_ms1), style = 3)
   if(thread == 1){
-    spectraList <- lapply(1:nrow(featureTable_ms1), function(m) {
+    spectraList <- lapply(1:nrow(chromPeakTable_ms1), function(m) {
       utils::setTxtProgressBar(pb, m)
-      loop_Deconv4ndata(m)
+      x <- chromPeakTable_ms1[m, ]$cpid
+      print(x)
+      loop(x)
     })
   }else if(thread > 1){
     cl <- snow::makeCluster(thread)
     doSNOW::registerDoSNOW(cl)
     opts <- list(progress = function(n) utils::setTxtProgressBar(pb,
                                                                  n))
-    envir <- environment(get_chrDfList)
+    envir <- environment(generate_chrDfList)
     parallel::clusterExport(cl, varlist = ls(envir), envir = envir)
-    envir <- environment(loop_Deconv4ndata)
-    spectraList <- foreach::`%dopar%`(foreach::foreach(m = 1:nrow(featureTable_ms1),
+    spectraList <- foreach::`%dopar%`(foreach::foreach(m = 1:nrow(chromPeakTable_ms1),
                                                        .packages = c("dplyr"),
                                                        .options.snow = opts),
-                                      loop_Deconv4ndata(m))
+                                      {
+                                        x <- chromPeakTable_ms1[m, ]$cpid
+                                        loop(x)
+                                      })
     snow::stopCluster(cl)
     gc()
   }else stop("thread is wrong!")
-  featureTable_ms1$spectra <- spectraList
-  return(featureTable_ms1)
+  chromPeakTable_ms1$spectra <- spectraList
+  return(chromPeakTable_ms1)
 }

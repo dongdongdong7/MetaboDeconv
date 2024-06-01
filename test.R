@@ -11,7 +11,21 @@ MetaboSpectra::plotSpectra(fenamiphos_spMat)
 # One sample
 swath_data # ndata 第n个样本
 swath_spectra
-featureTable_ms1 <- Deconv4ndata(ndata = swath_data, thread = 2)
+chromPeakTable <- dplyr::as_tibble(cbind(xcms::chromPeaks(swath_data),
+                                        xcms::chromPeakData(swath_data)),
+                                  rownames = "cpid")
+chromPeakTable_ms1 <- chromPeakTable %>%
+ dplyr::filter(ms_level == 1)
+chromPeakTable_ms2 <- chromPeakTable %>%
+ dplyr::filter(ms_level == 2)
+# filter chromPeakTable
+chromPeakTable_ms1 <- chromPeakTable_ms1 %>%
+  dplyr::filter(maxo >= 1000)
+chromPeakTable_ms2 <- chromPeakTable_ms2 %>%
+  dplyr::filter(maxo > 100)
+chromPeakTable_ms1 <- Deconv4ndata(ndata = swath_data, chromPeakTable_ms1 = chromPeakTable_ms1, chromPeakTable_ms2 = chromPeakTable_ms2,
+                                   thread = 4, st = 0.7)
+Spectra::plotSpectra(chromPeakTable_ms1[9, ]$spectra[[1]])
 
 featureTable <- dplyr::as_tibble(cbind(xcms::chromPeaks(swath_data),
                                        xcms::chromPeakData(swath_data)),
@@ -42,4 +56,29 @@ MetaboSpectra::plotComparableSpectra(fenamiphos_swath_spectrum_spMat, fenamiphos
 MetaboSpectra::compare_spMat_entropy(fenamiphos_swath_spectrum_spMat,fenamiphos_spMat)
 MetaboSpectra::compare_spMat_ndotproduct(fenamiphos_swath_spectrum_spMat,fenamiphos_spMat)
 # Multi sample
-load("./test_data/data_MSE.RData")
+load("./test_data/QC/data_MSE.RData")
+nLength <- length(data_MSE)
+featureTable_ms1List <- lapply(1:nLength, function(n) {
+  ndata <- data_MSE[n]
+  chromPeakTable <- dplyr::as_tibble(cbind(xcms::chromPeaks(ndata),
+                                           xcms::chromPeakData(ndata)),
+                                     rownames = "cpid")
+  chromPeakTable_ms1 <- chromPeakTable %>%
+    dplyr::filter(ms_level == 1)
+  chromPeakTable_ms2 <- chromPeakTable %>%
+    dplyr::filter(ms_level == 2)
+  # filter chromPeakTable
+  chromPeakTable_ms1 <- chromPeakTable_ms1 %>%
+    dplyr::filter(maxo >= 10000)
+  chromPeakTable_ms2 <- chromPeakTable_ms2 %>%
+    dplyr::filter(maxo > 1000)
+  plot_chrDf(generate_chrDf(ndata, "CP00347", noise = 10, smooth = TRUE, size = 3))
+  mchrDfList <- generate_chrDfList(ndata = ndata, cpid = "CP00347",
+                                  chromPeakTable_ms1 = chromPeakTable_ms1, chromPeakTable_ms2 = chromPeakTable_ms2)
+  plot_chrDfList(mchrDfList)
+  mchrDfList_new <- filterChrDf(chrDfList = mchrDfList, weight_rt = 0.5, weight_shape = 0.5,st = 0.70)
+  plot_chrDfList(chrDfList = mchrDfList_new)
+  chromPeakTable_ms1 <- Deconv4ndata(ndata = ndata, chromPeakTable_ms1 = chromPeakTable_ms1, chromPeakTable_ms2 = chromPeakTable_ms2,
+                                     thread = 1, st = 0.7)
+  Spectra::plotSpectra(chromPeakTable_ms1[9, ]$spectra[[1]])
+})
