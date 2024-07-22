@@ -21,7 +21,8 @@
 #' chromPeakTable_ms2 <- chromPeakTable %>%
 #'   dplyr::filter(ms_level == 2)
 #' chrDf_i <- generate_chrDf(ndata = swath_data, cpid = "CP34", smooth = TRUE, size = 3)
-generate_chrDf <- function(ndata, cpid, noise = 10, smooth = TRUE, size = 3){
+generate_chrDf <- function(ndata, cpid = NA, smooth = TRUE, size = 3){
+  if(is.na(cpid)) stop("Please set cpid!")
   chromPeakTable <- dplyr::as_tibble(cbind(xcms::chromPeaks(ndata),
                                            xcms::chromPeakData(ndata)),
                                      rownames = "cpid")
@@ -34,19 +35,23 @@ generate_chrDf <- function(ndata, cpid, noise = 10, smooth = TRUE, size = 3){
     Spectra::filterMzRange(mz = c(chromPeak$mzmin, chromPeak$mzmax))
   rtSpectra <- Spectra::rtime(cpSpectra)
   peaksData <- Spectra::peaksData(cpSpectra)
+  #browser()
   chrDf <- purrr::list_rbind(lapply(1:length(cpSpectra), function(j) {
-    rt_tmp <- rtSpectra[j]
     peakMat <- peaksData[[j]]
     if(nrow(peakMat) == 0){
-      return(NULL)
+      mz <- NA;intensity <- 0
+      return(data.frame(mz = mz, intensity = intensity))
     }else{
-      peakDf <- as.data.frame(peakMat)
-      peakDf$rt <- rt_tmp
+      idx <- which.max(peakMat[, "intensity"])
+      #mz <- mean(peakMat[, "mz"]);intensity <- mean(peakMat[, "intensity"])
+      mz <- peakMat[, "mz"][idx];intensity <- peakMat[, "intensity"][idx]
+      peakDf <- data.frame(mz = mz, intensity = intensity)
       return(peakDf)
     }
   }))
-  chrDf <- chrDf %>%
-    dplyr::filter(intensity > noise)
+  chrDf$rt <- rtSpectra
+  # chrDf <- chrDf %>%
+  #   dplyr::filter(intensity > noise)
   if(smooth) chrDf$intensity <- smoothMean(chrDf$intensity, size = size)
   return(chrDf)
 }

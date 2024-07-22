@@ -1,8 +1,8 @@
-library(xcms)
-library(MsExperiment)
-
+library(magrittr)
+# 创建一个用于测试的MSE数据
+# 如何减少feature的数量, CPC
 # 1. Load data
-dir_path <- "D:/fudan/Projects/2024/MetaboDeconv/Progress/build_package/MetaboDeconv/test_data/QC/"
+dir_path <- "D:/fudan/Projects/2024/MetaboDeconv/Progress/build_package/generate_data/test_data/QC/"
 file_path <- list.files(dir_path, pattern = ".mzML")
 file_path <- paste0(dir_path, file_path)
 pd <- data.frame(
@@ -16,16 +16,69 @@ pd <- data.frame(
 )
 pd <- pd %>%
   dplyr::arrange(inject_order)
-data_MSE <- readMsExperiment(pd$sample_path, sampleData = pd)
+data <- MsExperiment::readMsExperiment(pd$sample_path, sampleData = pd)
 
-load("./test_data/QC/best_params.RData")
-cwp <- CentWaveParam(snthresh = best_params$snthresh, noise = best_params$noise, ppm = best_params$ppm,
-                     peakwidth = c(best_params$min_peakwidth, best_params$max_peakwidth),
-                     prefilter = c(best_params$prefilter, best_params$value_of_prefilter),
-                     mzdiff = best_params$mzdiff)
-data_MSE <- findChromPeaks(data_MSE, param = cwp,
-                           chunkSize = length(data_MSE),
-                           BPPARAM = BiocParallel::SnowParam(workers = length(data_MSE), type = "SOCK"))
+# Peak picking
+optPara_ms1_xcms <- readRDS("D:/fudan/Projects/2024/MetaboDeconv/Progress/build_package/generate_data/240722/optPara_ms1_xcms.rds")
+optPara_ms2_xcms <- readRDS("D:/fudan/Projects/2024/MetaboDeconv/Progress/build_package/generate_data/240722/optPara_ms2_xcms.rds")
+cwp_opt_ms1 <- xcms::CentWaveParam(snthresh = optPara_ms1_xcms["signal/noise threshold"],
+                                   noise = optPara_ms1_xcms["noise filter"],
+                                   ppm = optPara_ms1_xcms["ppm"],
+                                   peakwidth = c(optPara_ms1_xcms["minimum peakwidth"], optPara_ms1_xcms["maximum peakwidth"]),
+                                   prefilter = c(optPara_ms1_xcms["prefilter peaks"], optPara_ms1_xcms["noise filter"]))
+cwp_opt_ms2 <- xcms::CentWaveParam(snthresh = optPara_ms2_xcms["signal/noise threshold"],
+                                   noise = optPara_ms2_xcms["noise filter"],
+                                   ppm = optPara_ms2_xcms["ppm"],
+                                   peakwidth = c(optPara_ms2_xcms["minimum peakwidth"], optPara_ms2_xcms["maximum peakwidth"]),
+                                   prefilter = c(optPara_ms2_xcms["prefilter peaks"], optPara_ms2_xcms["noise filter"]))
+data_opt_ms1 <- xcms::findChromPeaks(data, param = cwp_opt_ms1, chunkSize = 3L, msLevel = 1L,
+                                     BPPARAM = BiocParallel::SnowParam(workers = 3L, type = "SOCK"))
+
+# Peak shape filter
+neatms_res <- readr::read_csv("D:/fudan/Projects/2024/MetaboDeconv/Progress/build_package/generate_data/240722/neatms_output_ms1.csv")
+colnames(neatms_res) <- c("row", "row_id", "sample", "mz", "rt", "height", "area", "label")
+neatms_res$row_id <- neatms_res$row_id + 1
+neatms_res <- neatms_res %>% dplyr::filter(label == "High_quality")
+chromPeakTable_ms1 <- MetaboProcess::getChromPeakTable(data = data_opt_ms1, style = "xcms")
+chromPeakTable_ms1 <- chromPeakTable_ms1[neatms_res$row_id, ]
+data_filter <- data_opt_ms1
+chromPeaks_new <- as.data.frame(chromPeakTable_ms1[, 2:12])
+rownames(chromPeaks_new) <- chromPeakTable_ms1$cpid
+xcms::chromPeaks(data_filter) <- as.matrix(chromPeaks_new)
+chromPeakData_new <- as.data.frame(chromPeakTable_ms1[, 13:14])
+rownames(chromPeakData_new) <- chromPeakTable_ms1$cpid
+xcms::chromPeakData(data_filter) <- chromPeakData_new
+
+# Peak annotation
+resTable <- readRDS("D:/fudan/Projects/2024/MetaboDeconv/Progress/build_package/generate_data/240722/resTable.rds")
+resTable_filter <- resTable %>%
+  dplyr::filter(isotope == "M0") %>%
+  dplyr::filter(an1 == "[M+H]+" | is.na(an1))
+chromPeakTable_ms1 <- chromPeakTable_ms1 %>%
+  dplyr::filter(cpid %in% resTable_filter$cpid)
+chromPeaks_new <- as.data.frame(chromPeakTable_ms1[, 2:12])
+rownames(chromPeaks_new) <- chromPeakTable_ms1$cpid
+xcms::chromPeaks(data_filter) <- as.matrix(chromPeaks_new)
+chromPeakData_new <- as.data.frame(chromPeakTable_ms1[, 13:14])
+rownames(chromPeakData_new) <- chromPeakTable_ms1$cpid
+xcms::chromPeakData(data_filter) <- chromPeakData_new
+
+# MS2 assign
+data_filter <- xcms::findChromPeaksIsolationWindow(data_filter,
+                                          param = cwp_opt_ms2,
+                                          chunkSize = length(data_filter),
+                                          BPPARAM = BiocParallel::SnowParam(workers = length(data_filter), type = "SOCK"))
+saveRDS(data_filter, file = "D:/fudan/Projects/2024/MetaboDeconv/Progress/build_package/generate_data/240722/data_filter.rds")
+chromPeakTable <- MetaboProcess::getChromPeakTable(data = data_filter, style = "xcms")
+chromPeakTable_ms1 <- chromPeakTable %>%
+  dplyr::filter(ms_level == 1)
+chromPeakTable_ms2 <- chromPeakTable %>%
+  dplyr::filter(ms_level == 2)
+
+## Generate a chrDf
+test <- generate_chrDf(ndata = data_filter[1], cpid = "CP105468")
+MetaboProcess::plot_chrDf(test)
+
 pdp_subs <- PeakDensityParam(sampleGroups = sampleData(data_MSE)$sample_type,
                              minFraction = best_params$minFraction)
 data_MSE <- groupChromPeaks(data_MSE, param = pdp_subs)
@@ -52,3 +105,38 @@ data_MSE <- findChromPeaksIsolationWindow(data_MSE,
                                           chunkSize = length(data_MSE),
                                           BPPARAM = BiocParallel::SnowParam(workers = length(data_MSE), type = "SOCK"))
 save(data_MSE, file = "./test_data/QC/data_MSE.RData")
+
+chromPeakTable <- dplyr::as_tibble(cbind(xcms::chromPeaks(data_MSE),
+                                         xcms::chromPeakData(data_MSE)),
+                                   rownames = "cpid")
+chromPeakTable_ms1 <- chromPeakTable %>%
+  dplyr::filter(ms_level == 1)
+
+featureInfo <- xcms::featureDefinitions(data_MSE) %>%
+  dplyr::as_tibble(rownames = "ftid")# 13023
+featureValue <- dplyr::as_tibble(xcms::featureValues(data_MSE, value = "into"))
+featureTable <- dplyr::as_tibble(cbind(featureInfo, featureValue))
+cpidList <- lapply(1:nrow(featureTable), function(i) {
+  peakidx <- featureTable[i, ]$peakidx[[1]]
+  return(chromPeakTable_ms1[peakidx, ]$cpid)
+})
+featureTable$cpid <- cpidList
+
+featureTable[14, ]
+featureTable[14, ]$cpid
+chromPeakTable[chromPeakTable$cpid %in% featureTable[14, ]$cpid[[1]], ]
+featureTable[14, c(12,13,14)]
+plot_chrDf(generate_chrDf(ndata = data_MSE, cpid = "CP00332", smooth = TRUE, size = 5))
+
+data_xcmsSet <- xcms:::.XCMSnExp2xcmsSet(data_MSE)
+xsa <- CAMERA::xsAnnotate(data_xcmsSet)
+xsaF <- CAMERA::groupFWHM(xsa, perfwhm=0.6)
+xsaC <- CAMERA::groupCorr(xsaF)
+xsaFI <- CAMERA::findIsotopes(xsaC)
+#With provided rule table
+file <- system.file('rules/primary_adducts_pos.csv', package = "CAMERA")
+rules <- read.csv(file)
+
+xsaFA <- CAMERA::findAdducts(xsaFI, polarity="positive", rules = rules)
+peakList <- CAMERA::getPeaklist(xsaFA) # 13023
+rownames(peakList) <- rownames(data_peakList)

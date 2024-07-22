@@ -4,18 +4,18 @@
 \alias{generate_chrDf}
 \title{generate_chrDf}
 \usage{
-generate_chrDf(ndata, cpid, noise = 10, smooth = TRUE, size = 3)
+generate_chrDf(ndata, cpid = NA, smooth = TRUE, size = 3)
 }
 \arguments{
 \item{ndata}{nth sample data.}
 
 \item{cpid}{chromatographic peak id.}
 
-\item{noise}{noise value.}
-
 \item{smooth}{whether or not smooth.}
 
 \item{size}{smoothMean size.}
+
+\item{noise}{noise value.}
 }
 \value{
 chrDf.

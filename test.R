@@ -72,8 +72,8 @@ featureTable_ms1List <- lapply(1:nLength, function(n) {
     dplyr::filter(maxo >= 10000)
   chromPeakTable_ms2 <- chromPeakTable_ms2 %>%
     dplyr::filter(maxo > 1000)
-  plot_chrDf(generate_chrDf(ndata, "CP00347", noise = 10, smooth = TRUE, size = 3))
-  mchrDfList <- generate_chrDfList(ndata = ndata, cpid = "CP00347",
+  plot_chrDf(generate_chrDf(ndata, "CP074162", noise = 10, smooth = TRUE, size = 3))
+  mchrDfList <- generate_chrDfList(ndata = ndata, cpid = "CP07089",
                                   chromPeakTable_ms1 = chromPeakTable_ms1, chromPeakTable_ms2 = chromPeakTable_ms2)
   plot_chrDfList(mchrDfList)
   mchrDfList_new <- filterChrDf(chrDfList = mchrDfList, weight_rt = 0.5, weight_shape = 0.5,st = 0.70)
