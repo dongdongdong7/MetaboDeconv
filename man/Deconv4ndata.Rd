@@ -13,6 +13,7 @@ Deconv4ndata(
   noise2 = 0,
   cosTh = 0.8,
   corTh = 0.8,
+  noise_threshold = 0.05,
   thread = 1
 )
 }
@@ -33,6 +34,8 @@ Deconv4ndata(
 
 \item{corTh}{cor threshold.}
 
+\item{noise_threshold}{noise threshold.}
+
 \item{thread}{thread.}
 }
 \value{
@@ -43,6 +46,7 @@ Deconv function for nth sample.
 }
 \examples{
 load("D:/fudan/Projects/2024/MetaboDeconv/Progress/build_package/generate_data/test_data/swath_data.RData")
+load("D:/fudan/Projects/2024/MetaboDeconv/Progress/build_package/generate_data/test_data/swath_spectra.RData")
 chromPeakTable <- dplyr::as_tibble(cbind(xcms::chromPeaks(swath_data),
                                          xcms::chromPeakData(swath_data)),
                                    rownames = "cpid")
@@ -62,6 +66,19 @@ xcms::chromPeaks(swath_data) <- as.matrix(chromPeaks_new)
 chromPeakData_new <- as.data.frame(chromPeakTable[, 13:ncol(chromPeakTable)])
 rownames(chromPeakData_new) <- chromPeakTable$cpid
 xcms::chromPeakData(swath_data) <- chromPeakData_new
-chromPeakTable_ms1 <- Deconv4ndata(ndata = swath_data, thread = 3, cosTh = 0.6, corTh = 0.6,noise1 = 100, noise2 = 10)
-Spectra::plotSpectra(chromPeakTable_ms1[9, ]$spectra[[1]])
+chromPeakTable_ms1 <- Deconv4ndata(ndata = swath_data, thread = 3, factor = 1,cosTh = 0.8, corTh = 0.8,noise1 = 100, noise2 = 10, noise_threshold = 0.01)
+DIA_spMat <- sp2spMat(chromPeakTable_ms1[9, ]$spectra[[1]])
+DIA_spMat1 <- MetaboSpectra::clean_spMat(DIA_spMat)
+DIA_spMat2 <- MetaboSpectra::clean_spMat(DIA_spMat, normalize_intensity = TRUE)
+MetaboSpectra::plotSpectra(DIA_spMat1)
+fenamiphos <- Spectra::Spectra(
+      system.file("mgf", "metlin-72445.mgf", package = "xcms"),
+      source = MsBackendMgf::MsBackendMgf())
+fenamiphos_spMat <- sp2spMat(fenamiphos[2])
+fenamiphos_spMat1 <- MetaboSpectra::clean_spMat(fenamiphos_spMat, noise_threshold = 0.01)
+fenamiphos_spMat2 <- MetaboSpectra::clean_spMat(fenamiphos_spMat, noise_threshold = 0.01, normalize_intensity = TRUE)
+MetaboSpectra::plotSpectra(fenamiphos_spMat1)
+MetaboSpectra::plotComparableSpectra(DIA_spMat1, fenamiphos_spMat1, num = 30, tol_da2 = 0.05)
+MetaboSpectra::compare_spMat_entropy(DIA_spMat2,fenamiphos_spMat2)
+MetaboSpectra::compare_spMat_ndotproduct(DIA_spMat1,fenamiphos_spMat1, joinpeak = "inner")
 }

@@ -174,7 +174,7 @@ generate_chrDf <- function(ndata, cpid = NA, noise = 0,smooth = TRUE, size = 3){
   if(smooth) chrDf$intensity <- smoothMean(chrDf$intensity, size = size)
   return(chrDf)
 }
-cluster_peak <- function(ndata = ndata, cpid = NA, factor = 0.5, noise1 = 0, noise2 = 0, smooth = TRUE, size = 3, cosTh = 0.8, corTh = 0.8){
+cluster_peak <- function(ndata = ndata, cpid = NA, factor = 0.5, noise1 = 0, noise2 = 0, smooth = TRUE, size = 3, cosTh = 0.8, corTh = 0.8, noise_threshold = 0.05){
   if(is.na(cpid)) stop("Please set cpid!")
   chromPeakTable <- dplyr::as_tibble(cbind(xcms::chromPeaks(ndata),
                                            xcms::chromPeakData(ndata)),
@@ -194,7 +194,7 @@ cluster_peak <- function(ndata = ndata, cpid = NA, factor = 0.5, noise1 = 0, noi
     dplyr::filter(mzmax < mchromPeakTable_ms1$mzmin)
   # remove noise
   mchromPeakTable_ms2 <- mchromPeakTable_ms2 %>%
-    dplyr::filter(maxo > max(mchromPeakTable_ms2$maxo) * 0.05)
+    dplyr::filter(maxo > max(mchromPeakTable_ms2$maxo) * noise_threshold)
   if(nrow(mchromPeakTable_ms2) == 0) return(NULL)
   else{
     chrDfList_ms2 <- lapply(mchromPeakTable_ms2$cpid, function(x) {
@@ -265,12 +265,14 @@ peak2spectra <- function(clusterPeaks){
 #' @param thread thread.
 #' @param noise1 noise for ms1 peak.
 #' @param noise2 noise for ms2 peak.
+#' @param noise_threshold noise threshold.
 #'
 #' @return A tibble with spectra.
 #' @export
 #'
 #' @examples
 #' load("D:/fudan/Projects/2024/MetaboDeconv/Progress/build_package/generate_data/test_data/swath_data.RData")
+#' load("D:/fudan/Projects/2024/MetaboDeconv/Progress/build_package/generate_data/test_data/swath_spectra.RData")
 #' chromPeakTable <- dplyr::as_tibble(cbind(xcms::chromPeaks(swath_data),
 #'                                          xcms::chromPeakData(swath_data)),
 #'                                    rownames = "cpid")
@@ -290,9 +292,22 @@ peak2spectra <- function(clusterPeaks){
 #' chromPeakData_new <- as.data.frame(chromPeakTable[, 13:ncol(chromPeakTable)])
 #' rownames(chromPeakData_new) <- chromPeakTable$cpid
 #' xcms::chromPeakData(swath_data) <- chromPeakData_new
-#' chromPeakTable_ms1 <- Deconv4ndata(ndata = swath_data, thread = 3, cosTh = 0.6, corTh = 0.6,noise1 = 100, noise2 = 10)
-#' Spectra::plotSpectra(chromPeakTable_ms1[9, ]$spectra[[1]])
-Deconv4ndata <- function(ndata, smooth = TRUE, size = 3, factor = 0.5, noise1 = 0, noise2 = 0, cosTh = 0.8, corTh = 0.8, thread = 1){
+#' chromPeakTable_ms1 <- Deconv4ndata(ndata = swath_data, thread = 3, factor = 1,cosTh = 0.8, corTh = 0.8,noise1 = 100, noise2 = 10, noise_threshold = 0.01)
+#' DIA_spMat <- sp2spMat(chromPeakTable_ms1[9, ]$spectra[[1]])
+#' DIA_spMat1 <- MetaboSpectra::clean_spMat(DIA_spMat)
+#' DIA_spMat2 <- MetaboSpectra::clean_spMat(DIA_spMat, normalize_intensity = TRUE)
+#' MetaboSpectra::plotSpectra(DIA_spMat1)
+#' fenamiphos <- Spectra::Spectra(
+#'       system.file("mgf", "metlin-72445.mgf", package = "xcms"),
+#'       source = MsBackendMgf::MsBackendMgf())
+#' fenamiphos_spMat <- sp2spMat(fenamiphos[2])
+#' fenamiphos_spMat1 <- MetaboSpectra::clean_spMat(fenamiphos_spMat, noise_threshold = 0.01)
+#' fenamiphos_spMat2 <- MetaboSpectra::clean_spMat(fenamiphos_spMat, noise_threshold = 0.01, normalize_intensity = TRUE)
+#' MetaboSpectra::plotSpectra(fenamiphos_spMat1)
+#' MetaboSpectra::plotComparableSpectra(DIA_spMat1, fenamiphos_spMat1, num = 30, tol_da2 = 0.05)
+#' MetaboSpectra::compare_spMat_entropy(DIA_spMat2,fenamiphos_spMat2)
+#' MetaboSpectra::compare_spMat_ndotproduct(DIA_spMat1,fenamiphos_spMat1, joinpeak = "inner")
+Deconv4ndata <- function(ndata, smooth = TRUE, size = 3, factor = 0.5, noise1 = 0, noise2 = 0, cosTh = 0.8, corTh = 0.8, noise_threshold = 0.05, thread = 1){
   chromPeakTable <- chromPeakTable <- dplyr::as_tibble(cbind(xcms::chromPeaks(ndata),
                                                              xcms::chromPeakData(ndata)),
                                                        rownames = "cpid")
@@ -302,7 +317,7 @@ Deconv4ndata <- function(ndata, smooth = TRUE, size = 3, factor = 0.5, noise1 = 
     dplyr::filter(ms_level == 2)
   #browser()
   loop <- function(x){
-    clusterPeaks <- cluster_peak(ndata = ndata, cpid = x, noise1 = noise1, noise2 = noise2, cosTh = cosTh, corTh = corTh)
+    clusterPeaks <- cluster_peak(ndata = ndata, cpid = x, factor = factor, noise1 = noise1, noise2 = noise2, cosTh = cosTh, corTh = corTh,smooth = smooth, size = size, noise_threshold = noise_threshold)
     if(is.null(clusterPeaks) | is.null(clusterPeaks$ms2) | length(clusterPeaks$ms2) == 0) return(NULL)
     sp <- peak2spectra(clusterPeaks)
     return(sp)
