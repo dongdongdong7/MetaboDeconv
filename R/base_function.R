@@ -174,7 +174,7 @@ generate_chrDf <- function(ndata, cpid = NA, noise = 0,smooth = TRUE, size = 3){
   if(smooth) chrDf$intensity <- smoothMean(chrDf$intensity, size = size)
   return(chrDf)
 }
-cluseter_peak <- function(ndata = ndata, cpid = NA, factor = 0.5, noise1 = 0, noise2 = 0, smooth = TRUE, size = 3, cosTh = 0.8, corTh = 0.8){
+cluster_peak <- function(ndata = ndata, cpid = NA, factor = 0.5, noise1 = 0, noise2 = 0, smooth = TRUE, size = 3, cosTh = 0.8, corTh = 0.8){
   if(is.na(cpid)) stop("Please set cpid!")
   chromPeakTable <- dplyr::as_tibble(cbind(xcms::chromPeaks(ndata),
                                            xcms::chromPeakData(ndata)),
@@ -302,7 +302,7 @@ Deconv4ndata <- function(ndata, smooth = TRUE, size = 3, factor = 0.5, noise1 = 
     dplyr::filter(ms_level == 2)
   #browser()
   loop <- function(x){
-    clusterPeaks <- cluseter_peak(ndata = ndata, cpid = x, noise1 = noise1, noise2 = noise2, cosTh = cosTh, corTh = corTh)
+    clusterPeaks <- cluster_peak(ndata = ndata, cpid = x, noise1 = noise1, noise2 = noise2, cosTh = cosTh, corTh = corTh)
     if(is.null(clusterPeaks) | is.null(clusterPeaks$ms2) | length(clusterPeaks$ms2) == 0) return(NULL)
     sp <- peak2spectra(clusterPeaks)
     return(sp)
@@ -322,7 +322,7 @@ Deconv4ndata <- function(ndata, smooth = TRUE, size = 3, factor = 0.5, noise1 = 
     doSNOW::registerDoSNOW(cl)
     opts <- list(progress = function(n) utils::setTxtProgressBar(pb,
                                                                  n))
-    envir <- environment(cluseter_peak)
+    envir <- environment(cluster_peak)
     parallel::clusterExport(cl, varlist = ls(envir), envir = envir)
     envir <- environment(smoothMean)
     parallel::clusterExport(cl, varlist = ls(envir), envir = envir)
