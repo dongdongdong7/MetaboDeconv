@@ -13,5 +13,6 @@ cwp <- CentWaveParam(snthresh = 3, noise = 10, ppm = 10,
                      peakwidth = c(3, 30))
 swath_data <- findChromPeaksIsolationWindow(swath_data, param = cwp)
 swath_spectra <- reconstructChromPeakSpectra(swath_data, minCor = 0.9)
-save(swath_data, file = "./test_data/swath_data.RData")
-save(swath_spectra, file = "./test_data/swath_spectra.RData")
+save(swath_data, file = "D:/fudan/Projects/2024/MetaboDeconv/Progress/build_package/generate_data/test_data/swath_data.RData")
+save(swath_spectra, file = "D:/fudan/Projects/2024/MetaboDeconv/Progress/build_package/generate_data/test_data/swath_spectra.RData")
+

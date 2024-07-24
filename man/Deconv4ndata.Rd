@@ -6,60 +6,62 @@
 \usage{
 Deconv4ndata(
   ndata,
-  chromPeakTable_ms1,
-  chromPeakTable_ms2,
-  noise = 10,
   smooth = TRUE,
   size = 3,
   factor = 0.5,
-  weight_rt = 0.5,
-  weight_shape = 0.5,
-  st = 0.8,
+  noise1 = 0,
+  noise2 = 0,
+  cosTh = 0.8,
+  corTh = 0.8,
   thread = 1
 )
 }
 \arguments{
-\item{ndata}{nth sample data.}
-
-\item{chromPeakTable_ms1}{1 level chromPeakTable which have been filtered.(must be generate by ndata)}
-
-\item{chromPeakTable_ms2}{2 level chromPeakTable which have been filtered.(must be generate by ndata)}
-
-\item{noise}{noise value.}
+\item{ndata}{nth sample, a XcmsExperiment object.}
 
 \item{smooth}{whether or not smooth.}
 
-\item{size}{smoothMean size.}
+\item{size}{size smoothMean size.}
 
 \item{factor}{factor * peakwidth -> rtRange.}
 
-\item{weight_rt}{weight_rt.}
+\item{noise1}{noise for ms1 peak.}
 
-\item{weight_shape}{weight_shape.}
+\item{noise2}{noise for ms2 peak.}
 
-\item{st}{socre threshold.}
+\item{cosTh}{cos threshold.}
 
-\item{thread}{prarllel thread.}
+\item{corTh}{cor threshold.}
+
+\item{thread}{thread.}
 }
 \value{
-A new featureTable_ms1 with ms2 spectra.
+A tibble with spectra.
 }
 \description{
 Deconv function for nth sample.
 }
 \examples{
-load("./test_data/swath_data.RData")
+load("D:/fudan/Projects/2024/MetaboDeconv/Progress/build_package/generate_data/test_data/swath_data.RData")
 chromPeakTable <- dplyr::as_tibble(cbind(xcms::chromPeaks(swath_data),
-                                        xcms::chromPeakData(swath_data)),
-                                  rownames = "cpid")
+                                         xcms::chromPeakData(swath_data)),
+                                   rownames = "cpid")
 chromPeakTable_ms1 <- chromPeakTable \%>\%
- dplyr::filter(ms_level == 1)
+  dplyr::filter(ms_level == 1)
 chromPeakTable_ms2 <- chromPeakTable \%>\%
- dplyr::filter(ms_level == 2)
+  dplyr::filter(ms_level == 2)
 # filter chromPeakTable
 chromPeakTable_ms1 <- chromPeakTable_ms1 \%>\%
   dplyr::filter(maxo >= 1000)
 chromPeakTable_ms2 <- chromPeakTable_ms2 \%>\%
   dplyr::filter(maxo > 100)
-chromPeakTable_ms1 <- Deconv4ndata(ndata = swath_data, chromPeakTable_ms1 = chromPeakTable_ms1, chromPeakTable_ms2 = chromPeakTable_ms2)
+chromPeakTable <- rbind(chromPeakTable_ms1, chromPeakTable_ms2)
+chromPeaks_new <- as.data.frame(chromPeakTable[, 2:12])
+rownames(chromPeaks_new) <- chromPeakTable$cpid
+xcms::chromPeaks(swath_data) <- as.matrix(chromPeaks_new)
+chromPeakData_new <- as.data.frame(chromPeakTable[, 13:ncol(chromPeakTable)])
+rownames(chromPeakData_new) <- chromPeakTable$cpid
+xcms::chromPeakData(swath_data) <- chromPeakData_new
+chromPeakTable_ms1 <- Deconv4ndata(ndata = swath_data, thread = 3, cosTh = 0.6, corTh = 0.6,noise1 = 100, noise2 = 10)
+Spectra::plotSpectra(chromPeakTable_ms1[9, ]$spectra[[1]])
 }

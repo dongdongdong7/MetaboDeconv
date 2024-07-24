@@ -1,8 +1,8 @@
 devtools::document()
 
 # Load XcmsExperiment
-load("./test_data/swath_data.RData")
-load("./test_data/swath_spectra.RData")
+load("D:/fudan/Projects/2024/MetaboDeconv/Progress/build_package/generate_data/test_data/swath_data.RData")
+load("D:/fudan/Projects/2024/MetaboDeconv/Progress/build_package/generate_data/test_data/swath_spectra.RData")
 fenamiphos <- Spectra::Spectra(
   system.file("mgf", "metlin-72445.mgf", package = "xcms"),
   source = MsBackendMgf::MsBackendMgf())
@@ -23,8 +23,16 @@ chromPeakTable_ms1 <- chromPeakTable_ms1 %>%
   dplyr::filter(maxo >= 1000)
 chromPeakTable_ms2 <- chromPeakTable_ms2 %>%
   dplyr::filter(maxo > 100)
+chromPeakTable <- rbind(chromPeakTable_ms1, chromPeakTable_ms2)
+chromPeaks_new <- as.data.frame(chromPeakTable[, 2:12])
+rownames(chromPeaks_new) <- chromPeakTable$cpid
+xcms::chromPeaks(swath_data) <- as.matrix(chromPeaks_new)
+chromPeakData_new <- as.data.frame(chromPeakTable[, 13:ncol(chromPeakTable)])
+rownames(chromPeakData_new) <- chromPeakTable$cpid
+xcms::chromPeakData(swath_data) <- chromPeakData_new
 chromPeakTable_ms1 <- Deconv4ndata(ndata = swath_data, chromPeakTable_ms1 = chromPeakTable_ms1, chromPeakTable_ms2 = chromPeakTable_ms2,
                                    thread = 4, st = 0.7)
+chromPeakTable_ms1 <- Deconv4ndata_new(ndata = swath_data, thread = 3, cosTh = 0.4, corTh = 0.4)
 Spectra::plotSpectra(chromPeakTable_ms1[9, ]$spectra[[1]])
 
 featureTable <- dplyr::as_tibble(cbind(xcms::chromPeaks(swath_data),
