@@ -86,14 +86,14 @@ DIA_spMat1 <- MetaboSpectra::clean_spMat(DIA_spMat)
 MetaboSpectra::plotSpectra(DIA_spMat1)
 ```
 
-<img src="D:\fudan\Projects\2024\MetaboDeconv\Progress\build_package\MetaboDeconv\assets\image-20240724130042015.png" alt="image-20240724130042015" style="zoom:67%;" />
+<img src=".\assets\image-20240724130042015.png" alt="image-20240724130042015" style="zoom:50%;" />
 
 ```R
 DIA_spMat2 <- MetaboSpectra::clean_spMat(DIA_spMat, normalize_intensity = TRUE)
 MetaboSpectra::plotSpectra(DIA_spMat2)
 ```
 
-<img src="D:\fudan\Projects\2024\MetaboDeconv\Progress\build_package\MetaboDeconv\assets\image-20240724130125462.png" alt="image-20240724130125462" style="zoom:67%;" />
+<img src=".\assets\image-20240724130125462.png" alt="image-20240724130125462" style="zoom:50%;" />
 
 
 
@@ -110,19 +110,19 @@ fenamiphos_spMat2 <- MetaboSpectra::clean_spMat(fenamiphos_spMat, noise_threshol
 MetaboSpectra::plotSpectra(fenamiphos_spMat1)
 ```
 
-<img src="D:\fudan\Projects\2024\MetaboDeconv\Progress\build_package\MetaboDeconv\assets\image-20240724130225792.png" alt="image-20240724130225792" style="zoom:67%;" />
+<img src=".\assets\image-20240724130225792.png" alt="image-20240724130225792" style="zoom:50%;" />
 
 ```R
 MetaboSpectra::plotSpectra(fenamiphos_spMat2)
 ```
 
-<img src="D:\fudan\Projects\2024\MetaboDeconv\Progress\build_package\MetaboDeconv\assets\image-20240724130252394.png" alt="image-20240724130252394" style="zoom:67%;" />
+<img src=".\assets\image-20240724130252394.png" alt="image-20240724130252394" style="zoom:50%;" />
 
 ```R
 MetaboSpectra::plotComparableSpectra(DIA_spMat1, fenamiphos_spMat1, num = 30, tol_da2 = 0.05)
 ```
 
-<img src="D:\fudan\Projects\2024\MetaboDeconv\Progress\build_package\MetaboDeconv\assets\image-20240724130323449.png" alt="image-20240724130323449" style="zoom: 50%;" />
+<img src=".\assets\image-20240724130323449.png" alt="image-20240724130323449" style="zoom:50%;" />
 
 ```R
 MetaboSpectra::compare_spMat_entropy(DIA_spMat2,fenamiphos_spMat2) # 0.8249924
