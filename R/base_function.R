@@ -1,3 +1,45 @@
+# load("D:/fudan/Projects/2024/MetaboDeconv/Progress/build_package/generate_data/test_data/swath_data.RData")
+# load("D:/fudan/Projects/2024/MetaboDeconv/Progress/build_package/generate_data/test_data/swath_spectra.RData")
+# chromPeakTable <- dplyr::as_tibble(cbind(xcms::chromPeaks(swath_data),
+#                                          xcms::chromPeakData(swath_data)),
+#                                    rownames = "cpid")
+# chromPeakTable_ms1 <- chromPeakTable %>%
+#   dplyr::filter(ms_level == 1)
+# chromPeakTable_ms2 <- chromPeakTable %>%
+#   dplyr::filter(ms_level == 2)
+# # filter chromPeakTable
+# chromPeakTable_ms1 <- chromPeakTable_ms1 %>%
+#   dplyr::filter(maxo >= 1000)
+# chromPeakTable_ms2 <- chromPeakTable_ms2 %>%
+#   dplyr::filter(maxo > 100)
+# chromPeakTable <- rbind(chromPeakTable_ms1, chromPeakTable_ms2)
+# chromPeaks_new <- as.data.frame(chromPeakTable[, 2:12])
+# rownames(chromPeaks_new) <- chromPeakTable$cpid
+# xcms::chromPeaks(swath_data) <- as.matrix(chromPeaks_new)
+# chromPeakData_new <- as.data.frame(chromPeakTable[, 13:ncol(chromPeakTable)])
+# rownames(chromPeakData_new) <- chromPeakTable$cpid
+# xcms::chromPeakData(swath_data) <- chromPeakData_new
+# chrDfList <- getChromPeaksDf(ndata = swath_data, cpid = chromPeakTable$cpid, noise1 = 100, noise2 = 10)
+# clusterPeaks <- cluster_peak(ndata = swath_data,chrDfList = chrDfList, cpid = "CP34", factor = 1, method = "direct",noise_threshold = 0.01,
+#                              cosTh = 0.9, corTh = 0.9)
+# sp <- peak2spectra(clusterPeaks)
+# Spectra::plotSpectra(sp)
+# chromPeakTable_ms1 <- Deconv4ndata(ndata = swath_data, factor = 1,cosTh = 0.8, corTh = 0.8,noise1 = 100, noise2 = 10, noise_threshold = 0.01, method = "direct", thread = 1)
+# DIA_spMat <- sp2spMat(chromPeakTable_ms1[9, ]$spectra[[1]])
+# DIA_spMat1 <- MetaboSpectra::clean_spMat(DIA_spMat)
+# DIA_spMat2 <- MetaboSpectra::clean_spMat(DIA_spMat, normalize_intensity = TRUE)
+# MetaboSpectra::plotSpectra(DIA_spMat1)
+# fenamiphos <- Spectra::Spectra(
+#       system.file("mgf", "metlin-72445.mgf", package = "xcms"),
+#       source = MsBackendMgf::MsBackendMgf())
+# fenamiphos_spMat <- sp2spMat(fenamiphos[2])
+# fenamiphos_spMat1 <- MetaboSpectra::clean_spMat(fenamiphos_spMat, noise_threshold = 0.01)
+# fenamiphos_spMat2 <- MetaboSpectra::clean_spMat(fenamiphos_spMat, noise_threshold = 0.01, normalize_intensity = TRUE)
+# MetaboSpectra::plotSpectra(fenamiphos_spMat1)
+# MetaboSpectra::plotComparableSpectra(DIA_spMat1, fenamiphos_spMat1, num = 30, tol_da2 = 0.05)
+# MetaboSpectra::compare_spMat_entropy(DIA_spMat2,fenamiphos_spMat2)
+# MetaboSpectra::compare_spMat_ndotproduct(DIA_spMat1,fenamiphos_spMat1, joinpeak = "inner")
+
 smoothMean <- function(int, size = 3){
   if(size %% 2 == 0){
     stop("size should be a singular!")
@@ -16,42 +58,47 @@ smoothMean <- function(int, size = 3){
   })
   return(smooth_int)
 }
-calCor_shape <- function(chrDf1, chrDf2){
-  align_vectors <- function(A, B) {
-    # find apex
-    peak_A <- which.max(A)
-    peak_B <- which.max(B)
+calCor_shape <- function(chrDf1, chrDf2, method = "direct"){
+  #browser()
+  # if(all(diff(int2) > 0) | all(diff(int2) < 0)){
+  #   warning("This feature is detected as incremental or decremental!")
+  #   return(0)
+  # }
+  if(method == "apex"){
+    align_vectors <- function(A, B) {
+      # find apex
+      peak_A <- which.max(A)
+      peak_B <- which.max(B)
 
-    # length of two vector
-    left_len <- max(peak_A, peak_B) - 1
-    right_len <- max(length(A) - peak_A, length(B) - peak_B)
+      # length of two vector
+      left_len <- max(peak_A, peak_B) - 1
+      right_len <- max(length(A) - peak_A, length(B) - peak_B)
 
-    # new length
-    aligned_length <- left_len + right_len + 1
-    new_A <- rep(NA, aligned_length)
-    new_B <- rep(NA, aligned_length)
+      # new length
+      aligned_length <- left_len + right_len + 1
+      new_A <- rep(NA, aligned_length)
+      new_B <- rep(NA, aligned_length)
 
-    # alignment A
-    start_A <- left_len - (peak_A - 1) + 1
-    end_A <- start_A + length(A) - 1
-    new_A[start_A:end_A] <- A
+      # alignment A
+      start_A <- left_len - (peak_A - 1) + 1
+      end_A <- start_A + length(A) - 1
+      new_A[start_A:end_A] <- A
 
-    # alignment B
-    start_B <- left_len - (peak_B - 1) + 1
-    end_B <- start_B + length(B) - 1
-    new_B[start_B:end_B] <- B
+      # alignment B
+      start_B <- left_len - (peak_B - 1) + 1
+      end_B <- start_B + length(B) - 1
+      new_B[start_B:end_B] <- B
 
-    return(list(aligned_A = new_A, aligned_B = new_B))
-  }
-  int1 <- chrDf1$intensity
-  int2 <- chrDf2$intensity
-  if(all(diff(int2) > 0) | all(diff(int2) < 0)){
-    warning("This feature is detected as incremental or decremental!")
-    return(0)
-  }
-  intTmp <- align_vectors(A = int1, B = int2)
-  int1 <- intTmp[[1]];int2 <- intTmp[[2]]
+      return(list(aligned_A = new_A, aligned_B = new_B))
+    }
+    intTmp <- align_vectors(A = chrDf1$intensity, B = chrDf2$intensity)
+    int1 <- intTmp[[1]];int2 <- intTmp[[2]]
+  }else if(method == "direct"){
+    int1 <- chrDf1$intensity
+    int2 <- chrDf2$intensity
+  }else stop("method wrong!")
   cor_shape <- round(cor(int1, int2, method = "pearson", use = "pairwise.complete.obs"), 4)
+  if(is.na(cor_shape)) cor_shape <- 0
   return(cor_shape)
 }
 sp2spMat <- function(sp){
@@ -65,31 +112,16 @@ spMat2sp <- function(spMat, msLevel = 1L, rtime = 0){
   spd$intensity <- list(spMat[,"intensity"])
   return(Spectra::Spectra(spd))
 }
-align_vectors <- function(vec1, vec2) {
-  # 创建一个矩阵来存储两个向量之间的差值
-  diff_matrix <- outer(vec1, vec2, FUN = function(x, y) abs(x - y))
-
-  # 找到最小差值的位置
-  min_indices <- which(diff_matrix == min(diff_matrix), arr.ind = TRUE)
-  best_i <- min_indices[1, 1]
-  best_j <- min_indices[1, 2]
-
-  # 计算对齐后的长度
-  max_length <- max(length(vec1) + best_j - 1, length(vec2) + best_i - 1)
-
-  # 对齐向量
-  aligned_vec1 <- c(rep(NA, best_j - 1), vec1, rep(NA, max_length - (length(vec1) + best_j - 1)))
-  aligned_vec2 <- c(rep(NA, best_i - 1), vec2, rep(NA, max_length - (length(vec2) + best_i - 1)))
-
-  list(aligned_vec1 = aligned_vec1, aligned_vec2 = aligned_vec2)
-}
 cosine_similarity <- function(vec1, vec2) {
+  vec1[is.na(vec1)] <- 0
+  vec2[is.na(vec2)] <- 0
+
   # 计算点积
-  dot_product <- sum(vec1 * vec2, na.rm = TRUE)
+  dot_product <- sum(vec1 * vec2)
 
   # 计算范数
-  norm_vec1 <- sqrt(sum(vec1^2, na.rm = TRUE))
-  norm_vec2 <- sqrt(sum(vec2^2, na.rm = TRUE))
+  norm_vec1 <- sqrt(sum(vec1^2))
+  norm_vec2 <- sqrt(sum(vec2^2))
 
   # 计算余弦相似度
   cosine_sim <- dot_product / (norm_vec1 * norm_vec2)
@@ -139,42 +171,43 @@ fill_na_with_mean <- function(vec) {
 
   return(vec)
 }
+approx_chrDf <- function(chrDf_x, chrDf_y){
+  tmp <- approx(x = chrDf_x$rt, y = chrDf_x$intensity, xout = chrDf_y$rt)
+  extra_chrDf <- dplyr::tibble(intensity = tmp$y, rt = tmp$x)
+  extra_chrDf$mz <- mean(chrDf_x$mz)
+  chrDf_x_new <- rbind(chrDf_x, extra_chrDf) %>% dplyr::arrange(rt)
 
-generate_chrDf <- function(ndata, cpid = NA, noise = 0,smooth = TRUE, size = 3){
-  if(is.na(cpid)) stop("Please set cpid!")
-  chromPeakTable <- dplyr::as_tibble(cbind(xcms::chromPeaks(ndata),
-                                           xcms::chromPeakData(ndata)),
-                                     rownames = "cpid")
-  chromPeak <- chromPeakTable[chromPeakTable$cpid == cpid, ]
-  ms_level <- chromPeak$ms_level
-  spectra <- xcms::spectra(ndata) %>%
-    Spectra::filterMsLevel(ms_level)
-  cpSpectra <- spectra %>%
-    Spectra::filterRt(c(chromPeak$rtmin, chromPeak$rtmax)) %>%
-    Spectra::filterMzRange(mz = c(chromPeak$mzmin, chromPeak$mzmax))
-  rtSpectra <- Spectra::rtime(cpSpectra)
-  peaksData <- Spectra::peaksData(cpSpectra)
-  #browser()
-  chrDf <- purrr::list_rbind(lapply(1:length(cpSpectra), function(j) {
-    peakMat <- peaksData[[j]]
-    if(nrow(peakMat) == 0){
-      mz <- NA;intensity <- 0
-      return(data.frame(mz = mz, intensity = intensity, row.names = NULL))
-    }else{
-      idx <- which.max(peakMat[, "intensity"])
-      #mz <- mean(peakMat[, "mz"]);intensity <- mean(peakMat[, "intensity"])
-      mz <- peakMat[, "mz"][idx];intensity <- peakMat[, "intensity"][idx]
-      peakDf <- data.frame(mz = mz, intensity = intensity, row.names = NULL)
-      return(peakDf)
-    }
-  }))
-  chrDf$rt <- rtSpectra
-  chrDf <- chrDf %>%
-    dplyr::filter(intensity > noise)
-  if(smooth) chrDf$intensity <- smoothMean(chrDf$intensity, size = size)
-  return(chrDf)
+  tmp <- approx(x = chrDf_y$rt, y = chrDf_y$intensity, xout = chrDf_x$rt)
+  extra_chrDf <- dplyr::tibble(intensity = tmp$y, rt = tmp$x)
+  extra_chrDf$mz <- mean(chrDf_y$mz)
+  chrDf_y_new <- rbind(chrDf_y, extra_chrDf) %>% dplyr::arrange(rt)
+
+  return(list(chrDf_x = chrDf_x_new, chrDf_y = chrDf_y_new))
 }
-cluster_peak <- function(ndata = ndata, cpid = NA, factor = 0.5, noise1 = 0, noise2 = 0, smooth = TRUE, size = 3, cosTh = 0.8, corTh = 0.8, noise_threshold = 0.05){
+getChromPeaksDf <- function(ndata, cpid = NA, noise1 = 0, noise2 = 0, smooth = FALSE, size = 3, expandRt = 0, expandMz = 0){
+  tmp <- xcms::chromPeakChromatograms(ndata, peaks = cpid, expandRt = expandRt, expandMz = expandMz)
+  #browser()
+  chrDfList <- lapply(1:nrow(tmp), function(i) {
+    XChr <- tmp[i, 1]
+    msLevel <- XChr@msLevel
+    if(msLevel == 1) noise <- noise1
+    else if(msLevel == 2) noise <- noise2
+    else stop("msLevel wrong!")
+    intensity <- XChr@intensity
+    intensity[which(intensity <= noise)] <- NA
+    # if(is.na(intensity[1])) intensity[1] <- 0
+    # if(is.na(intensity[length(intensity)])) intensity[length(intensity)] <- 0
+    rt <- XChr@rtime
+    chrDf <- dplyr::tibble(intensity = intensity, rt = rt) %>%
+      dplyr::filter(!is.na(intensity))
+    chrDf$mz <- mean(XChr@mz)
+    if(smooth) chrDf$intensity <- smoothMean(chrDf$intensity, size = size)
+    return(chrDf)
+  })
+  names(chrDfList) <- cpid
+  return(chrDfList)
+}
+cluster_peak <- function(ndata = ndata, chrDfList, cpid = NA, factor = 1, cosTh = 0.8, corTh = 0.8, method = "direct", noise_threshold = 0.05){
   if(is.na(cpid)) stop("Please set cpid!")
   chromPeakTable <- dplyr::as_tibble(cbind(xcms::chromPeaks(ndata),
                                            xcms::chromPeakData(ndata)),
@@ -195,35 +228,27 @@ cluster_peak <- function(ndata = ndata, cpid = NA, factor = 0.5, noise1 = 0, noi
   # remove noise
   mchromPeakTable_ms2 <- mchromPeakTable_ms2 %>%
     dplyr::filter(maxo > max(mchromPeakTable_ms2$maxo) * noise_threshold)
+  chrDfList_ms1 <- chrDfList[mchromPeakTable_ms1$cpid]
   if(nrow(mchromPeakTable_ms2) == 0) return(NULL)
   else{
-    chrDfList_ms2 <- lapply(mchromPeakTable_ms2$cpid, function(x) {
-      chrDf_x <- generate_chrDf(ndata = ndata, cpid = x, smooth = smooth, size = size, noise = noise2)
-    })
-    names(chrDfList_ms2) <- mchromPeakTable_ms2$cpid
+    chrDfList_ms2 <- chrDfList[mchromPeakTable_ms2$cpid]
   }
-  chrDf_ms1 <- generate_chrDf(ndata = ndata, cpid = mchromPeakTable_ms1$cpid,
-                              smooth = smooth, size = size, noise = noise1)
-  chrDfList_ms1 <- list(chrDf_ms1)
-  names(chrDfList_ms1) <- mchromPeakTable_ms1$cpid
+  if(length(chrDfList_ms2) == 0) return(list(ms1 = chrDfList_ms1, ms2 = NULL))
   #browser()
-  if(length(chrDfList_ms2) == 0) return(list(ms1 = chrDfList_ms1, ms2 = NULL))
-  score <- sapply(1:length(chrDfList_ms2), function(i) {
-    vec1_rt <- chrDf_ms1$rt;vec2_rt <- chrDfList_ms2[[i]]$rt
-    vec1_int <- chrDf_ms1$intensity;vec2_int <- chrDfList_ms2[[i]]$intensity
-    tmp <- align_vectors(vec1 = vec1_rt, vec2 = vec2_rt)
-    vec1_rt <- tmp$aligned_vec1;vec2_rt <- tmp$aligned_vec2
-    vec1_rt[!is.na(vec1_rt)] <- vec1_int;vec2_rt[!is.na(vec2_rt)] <- vec2_int
-    vec1_int <- vec1_rt;vec2_int <- vec2_rt
-    cosine_similarity(vec1_int, vec2_int)
+  scoreList <- lapply(1:length(chrDfList_ms2), function(i) {
+    #plot_chrDfList(list(ms1 = chrDfList_ms1[1], ms2 = chrDfList_ms2[i]))
+    res <- approx_chrDf(chrDf_x = chrDfList_ms1[[1]], chrDf_y = chrDfList_ms2[[i]])
+    #plot_chrDfList(list(ms1 = list(res$chrDf_x), ms2 = list(res$chrDf_y)))
+    cosScore <- cosine_similarity(res$chrDf_x$intensity, res$chrDf_y$intensity)
+    corScore <- calCor_shape(chrDf1 = res$chrDf_x, chrDf2 = res$chrDf_y, method = method)
+    return(c(cosScore = cosScore, corScore = corScore))
   })
-  chrDfList_ms2 <- chrDfList_ms2[which(score > cosTh)]
+  cosScore <- sapply(scoreList, function(x) {x["cosScore"]})
+  corScore <- sapply(scoreList, function(x) {x["corScore"]})
+  chrDfList_ms2 <- chrDfList_ms2[which(cosScore > cosTh & corScore > corTh)]
   if(length(chrDfList_ms2) == 0) return(list(ms1 = chrDfList_ms1, ms2 = NULL))
-  score <- sapply(1:length(chrDfList_ms2), function(i) {
-    calCor_shape(chrDf_ms1, chrDfList_ms2[[i]])
-  })
-  chrDfList_ms2 <- chrDfList_ms2[which(score > corTh)]
   chrDfList <- list(ms1 = chrDfList_ms1, ms2 = chrDfList_ms2)
+  #plot_chrDfList(chrDfList)
   return(chrDfList)
 }
 peak2spectra <- function(clusterPeaks){
@@ -251,7 +276,6 @@ peak2spectra <- function(clusterPeaks){
   sp <- Spectra::Spectra(spd)
   return(sp)
 }
-
 #' @title Deconv4ndata
 #' @description
 #' Deconv function for nth sample.
@@ -266,6 +290,7 @@ peak2spectra <- function(clusterPeaks){
 #' @param noise1 noise for ms1 peak.
 #' @param noise2 noise for ms2 peak.
 #' @param noise_threshold noise threshold.
+#' @param method calCor_shape parameter, for align method.
 #'
 #' @return A tibble with spectra.
 #' @export
@@ -292,7 +317,12 @@ peak2spectra <- function(clusterPeaks){
 #' chromPeakData_new <- as.data.frame(chromPeakTable[, 13:ncol(chromPeakTable)])
 #' rownames(chromPeakData_new) <- chromPeakTable$cpid
 #' xcms::chromPeakData(swath_data) <- chromPeakData_new
-#' chromPeakTable_ms1 <- Deconv4ndata(ndata = swath_data, thread = 3, factor = 1,cosTh = 0.8, corTh = 0.8,noise1 = 100, noise2 = 10, noise_threshold = 0.01)
+#' chrDfList <- getChromPeaksDf(ndata = swath_data, cpid = chromPeakTable$cpid, noise1 = 100, noise2 = 10)
+#' clusterPeaks <- cluster_peak(ndata = swath_data,chrDfList = chrDfList, cpid = "CP34", factor = 1, method = "direct",noise_threshold = 0.01,
+#'                              cosTh = 0.9, corTh = 0.9)
+#' sp <- peak2spectra(clusterPeaks)
+#' Spectra::plotSpectra(sp)
+#' chromPeakTable_ms1 <- Deconv4ndata(ndata = swath_data, factor = 1,cosTh = 0.8, corTh = 0.8,noise1 = 100, noise2 = 10, noise_threshold = 0.01, method = "direct", thread = 1)
 #' DIA_spMat <- sp2spMat(chromPeakTable_ms1[9, ]$spectra[[1]])
 #' DIA_spMat1 <- MetaboSpectra::clean_spMat(DIA_spMat)
 #' DIA_spMat2 <- MetaboSpectra::clean_spMat(DIA_spMat, normalize_intensity = TRUE)
@@ -307,17 +337,16 @@ peak2spectra <- function(clusterPeaks){
 #' MetaboSpectra::plotComparableSpectra(DIA_spMat1, fenamiphos_spMat1, num = 30, tol_da2 = 0.05)
 #' MetaboSpectra::compare_spMat_entropy(DIA_spMat2,fenamiphos_spMat2)
 #' MetaboSpectra::compare_spMat_ndotproduct(DIA_spMat1,fenamiphos_spMat1, joinpeak = "inner")
-Deconv4ndata <- function(ndata, smooth = TRUE, size = 3, factor = 0.5, noise1 = 0, noise2 = 0, cosTh = 0.8, corTh = 0.8, noise_threshold = 0.05, thread = 1){
+Deconv4ndata <- function(ndata, smooth = FALSE, size = 3, factor = 0.5, noise1 = 0, noise2 = 0, cosTh = 0.8, corTh = 0.8, noise_threshold = 0.05, method = "direct",thread = 1){
   chromPeakTable <- chromPeakTable <- dplyr::as_tibble(cbind(xcms::chromPeaks(ndata),
                                                              xcms::chromPeakData(ndata)),
                                                        rownames = "cpid")
   chromPeakTable_ms1 <- chromPeakTable %>%
     dplyr::filter(ms_level == 1)
-  chromPeakTable_ms2 <- chromPeakTable %>%
-    dplyr::filter(ms_level == 2)
   #browser()
+  chrDfList <- getChromPeaksDf(ndata = ndata, cpid = chromPeakTable$cpid, noise1 = noise1, noise2 = noise2, smooth = smooth, size = size)
   loop <- function(x){
-    clusterPeaks <- cluster_peak(ndata = ndata, cpid = x, factor = factor, noise1 = noise1, noise2 = noise2, cosTh = cosTh, corTh = corTh,smooth = smooth, size = size, noise_threshold = noise_threshold)
+    clusterPeaks <- cluster_peak(ndata = ndata, chrDfList = chrDfList, cpid = x, factor = factor, cosTh = cosTh, corTh = corTh, method = method, noise_threshold = noise_threshold)
     if(is.null(clusterPeaks) | is.null(clusterPeaks$ms2) | length(clusterPeaks$ms2) == 0) return(NULL)
     sp <- peak2spectra(clusterPeaks)
     return(sp)
@@ -329,7 +358,6 @@ Deconv4ndata <- function(ndata, smooth = TRUE, size = 3, factor = 0.5, noise1 = 
     spectraList <- lapply(1:nrow(chromPeakTable_ms1), function(m) {
       utils::setTxtProgressBar(pb, m)
       x <- chromPeakTable_ms1[m, ]$cpid
-      #print(m)
       loop(x)
     })
   }else if(thread > 1){
@@ -342,8 +370,6 @@ Deconv4ndata <- function(ndata, smooth = TRUE, size = 3, factor = 0.5, noise1 = 
     envir <- environment(smoothMean)
     parallel::clusterExport(cl, varlist = ls(envir), envir = envir)
     envir <- environment(peak2spectra)
-    parallel::clusterExport(cl, varlist = ls(envir), envir = envir)
-    envir <- environment(generate_chrDf)
     parallel::clusterExport(cl, varlist = ls(envir), envir = envir)
     spectraList <- foreach::`%dopar%`(foreach::foreach(m = 1:nrow(chromPeakTable_ms1),
                                                        .packages = c("dplyr"),

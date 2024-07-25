@@ -6,7 +6,7 @@
 \usage{
 Deconv4ndata(
   ndata,
-  smooth = TRUE,
+  smooth = FALSE,
   size = 3,
   factor = 0.5,
   noise1 = 0,
@@ -14,6 +14,7 @@ Deconv4ndata(
   cosTh = 0.8,
   corTh = 0.8,
   noise_threshold = 0.05,
+  method = "direct",
   thread = 1
 )
 }
@@ -35,6 +36,8 @@ Deconv4ndata(
 \item{corTh}{cor threshold.}
 
 \item{noise_threshold}{noise threshold.}
+
+\item{method}{calCor_shape parameter, for align method.}
 
 \item{thread}{thread.}
 }
@@ -66,7 +69,12 @@ xcms::chromPeaks(swath_data) <- as.matrix(chromPeaks_new)
 chromPeakData_new <- as.data.frame(chromPeakTable[, 13:ncol(chromPeakTable)])
 rownames(chromPeakData_new) <- chromPeakTable$cpid
 xcms::chromPeakData(swath_data) <- chromPeakData_new
-chromPeakTable_ms1 <- Deconv4ndata(ndata = swath_data, thread = 3, factor = 1,cosTh = 0.8, corTh = 0.8,noise1 = 100, noise2 = 10, noise_threshold = 0.01)
+chrDfList <- getChromPeaksDf(ndata = swath_data, cpid = chromPeakTable$cpid, noise1 = 100, noise2 = 10)
+clusterPeaks <- cluster_peak(ndata = swath_data,chrDfList = chrDfList, cpid = "CP34", factor = 1, method = "direct",noise_threshold = 0.01,
+                             cosTh = 0.9, corTh = 0.9)
+sp <- peak2spectra(clusterPeaks)
+Spectra::plotSpectra(sp)
+chromPeakTable_ms1 <- Deconv4ndata(ndata = swath_data, factor = 1,cosTh = 0.8, corTh = 0.8,noise1 = 100, noise2 = 10, noise_threshold = 0.01, method = "direct", thread = 1)
 DIA_spMat <- sp2spMat(chromPeakTable_ms1[9, ]$spectra[[1]])
 DIA_spMat1 <- MetaboSpectra::clean_spMat(DIA_spMat)
 DIA_spMat2 <- MetaboSpectra::clean_spMat(DIA_spMat, normalize_intensity = TRUE)
