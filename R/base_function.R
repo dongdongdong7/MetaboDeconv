@@ -59,11 +59,6 @@ smoothMean <- function(int, size = 3){
   return(smooth_int)
 }
 calCor_shape <- function(chrDf1, chrDf2, method = "direct"){
-  #browser()
-  # if(all(diff(int2) > 0) | all(diff(int2) < 0)){
-  #   warning("This feature is detected as incremental or decremental!")
-  #   return(0)
-  # }
   if(method == "apex"){
     align_vectors <- function(A, B) {
       # find apex
@@ -186,7 +181,6 @@ approx_chrDf <- function(chrDf_x, chrDf_y){
 }
 getChromPeaksDf <- function(ndata, cpid = NA, noise1 = 0, noise2 = 0, smooth = FALSE, size = 3, expandRt = 0, expandMz = 0){
   tmp <- xcms::chromPeakChromatograms(ndata, peaks = cpid, expandRt = expandRt, expandMz = expandMz)
-  #browser()
   chrDfList <- lapply(1:nrow(tmp), function(i) {
     XChr <- tmp[i, 1]
     msLevel <- XChr@msLevel
@@ -195,8 +189,6 @@ getChromPeaksDf <- function(ndata, cpid = NA, noise1 = 0, noise2 = 0, smooth = F
     else stop("msLevel wrong!")
     intensity <- XChr@intensity
     intensity[which(intensity <= noise)] <- NA
-    # if(is.na(intensity[1])) intensity[1] <- 0
-    # if(is.na(intensity[length(intensity)])) intensity[length(intensity)] <- 0
     rt <- XChr@rtime
     chrDf <- dplyr::tibble(intensity = intensity, rt = rt) %>%
       dplyr::filter(!is.na(intensity))
@@ -252,7 +244,6 @@ cluster_peak <- function(ndata = ndata, chrDfList, cpid = NA, factor = 1, cosTh 
   return(chrDfList)
 }
 peak2spectra <- function(clusterPeaks){
-  #browser()
   peak_ms1 <- clusterPeaks$ms1[[1]]
   peak_ms1$mz <- fill_na_with_mean(peak_ms1$mz)
   idx_ms1 <- which.max(peak_ms1$intensity)
