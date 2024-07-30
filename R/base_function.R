@@ -1,3 +1,4 @@
+# devtools::document()
 # load("D:/fudan/Projects/2024/MetaboDeconv/Progress/build_package/generate_data/test_data/swath_data.RData")
 # load("D:/fudan/Projects/2024/MetaboDeconv/Progress/build_package/generate_data/test_data/swath_spectra.RData")
 # chromPeakTable <- dplyr::as_tibble(cbind(xcms::chromPeaks(swath_data),
@@ -20,8 +21,12 @@
 # rownames(chromPeakData_new) <- chromPeakTable$cpid
 # xcms::chromPeakData(swath_data) <- chromPeakData_new
 # chrDfList <- getChromPeaksDf(ndata = swath_data, cpid = chromPeakTable$cpid, noise1 = 100, noise2 = 10)
+# clusterPeaks0 <- cluster_peak(ndata = swath_data,chrDfList = chrDfList, cpid = "CP34", factor = 2, method = "direct",noise_threshold = 0.01,
+#                              cosTh = -1, corTh = -1)
+# plot_chrDfList(clusterPeaks0)
 # clusterPeaks <- cluster_peak(ndata = swath_data,chrDfList = chrDfList, cpid = "CP34", factor = 1, method = "direct",noise_threshold = 0.01,
 #                              cosTh = 0.9, corTh = 0.9)
+# plot_chrDfList(clusterPeaks)
 # sp <- peak2spectra(clusterPeaks)
 # Spectra::plotSpectra(sp)
 # chromPeakTable_ms1 <- Deconv4ndata(ndata = swath_data, factor = 1,cosTh = 0.8, corTh = 0.8,noise1 = 100, noise2 = 10, noise_threshold = 0.01, method = "direct", thread = 1)
@@ -38,7 +43,19 @@
 # MetaboSpectra::plotSpectra(fenamiphos_spMat1)
 # MetaboSpectra::plotComparableSpectra(DIA_spMat1, fenamiphos_spMat1, num = 30, tol_da2 = 0.05)
 # MetaboSpectra::compare_spMat_entropy(DIA_spMat2,fenamiphos_spMat2)
-# MetaboSpectra::compare_spMat_ndotproduct(DIA_spMat1,fenamiphos_spMat1, joinpeak = "inner")
+# MetaboSpectra::compare_spMat_ndotproduct(DIA_spMat1,fenamiphos_spMat1, joinpeak = "outer")
+# fenamiphos_mz <- 304.113077
+# fenamiphos_ms1_peak <- xcms::chromPeaks(swath_data, mz = fenamiphos_mz, ppm = 2)
+# fenamiphos_ms1_peak
+# fenamiphos_swath_spectrum <- swath_spectra[
+#   swath_spectra$peak_id == rownames(fenamiphos_ms1_peak)]
+# fenamiphos_swath_spMat <- sp2spMat(fenamiphos_swath_spectrum)
+# fenamiphos_swath_spMat1 <- MetaboSpectra::clean_spMat(fenamiphos_swath_spMat, noise_threshold = 0.01)
+# fenamiphos_swath_spMat2 <- MetaboSpectra::clean_spMat(fenamiphos_swath_spMat, noise_threshold = 0.01, normalize_intensity = TRUE)
+# MetaboSpectra::plotSpectra(fenamiphos_swath_spMat1)
+# MetaboSpectra::plotComparableSpectra(fenamiphos_swath_spMat1, fenamiphos_spMat1, num = 30, tol_da2 = 0.05)
+# MetaboSpectra::compare_spMat_entropy(fenamiphos_swath_spMat2,fenamiphos_spMat2)
+# MetaboSpectra::compare_spMat_ndotproduct(fenamiphos_swath_spMat1,fenamiphos_spMat1, joinpeak = "outer")
 
 smoothMean <- function(int, size = 3){
   if(size %% 2 == 0){
