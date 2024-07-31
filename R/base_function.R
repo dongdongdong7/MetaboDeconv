@@ -283,6 +283,13 @@ cluster_peak <- function(ndata = ndata, chrDfList, cpid = NA, factor = 1, cosTh 
   if(nrow(mchromPeakTable_ms2) == 0) return(NULL)
   else{
     chrDfList_ms2 <- chrDfList[mchromPeakTable_ms2$cpid]
+    chrDfLength <- sapply(chrDfList_ms2, function(x) {
+      if(is.null(x)) return(0)
+      else{
+        return(nrow(x))
+      }
+    })
+    chrDfList_ms2 <- chrDfList_ms2[chrDfLength!=0]
   }
   if(length(chrDfList_ms2) == 0) return(list(ms1 = chrDfList_ms1, ms2 = NULL))
   #browser()
@@ -396,13 +403,6 @@ Deconv4ndata <- function(ndata, smooth = FALSE, size = 3, factor = 0.5, noise1 =
     dplyr::filter(ms_level == 1)
   #browser()
   chrDfList <- getChromPeaksDf(ndata = ndata, cpid = chromPeakTable$cpid,cpN = cpN, noise1 = noise1, noise2 = noise2, smooth = smooth, size = size, thread = thread)
-  chrDfLength <- sapply(chrDfList, function(x) {
-    if(is.null(x)) return(0)
-    else{
-      return(nrow(x))
-    }
-  })
-  chrDfList <- chrDfList[chrDfLength!=0]
   loop <- function(x){
     clusterPeaks <- cluster_peak(ndata = ndata, chrDfList = chrDfList, cpid = x, factor = factor, cosTh = cosTh, corTh = corTh, method = method, noise_threshold = noise_threshold)
     if(is.null(clusterPeaks) | is.null(clusterPeaks$ms2) | length(clusterPeaks$ms2) == 0) return(NULL)
