@@ -31,8 +31,14 @@ cwp_opt_ms2 <- xcms::CentWaveParam(snthresh = optPara_ms2_xcms["signal/noise thr
                                    ppm = optPara_ms2_xcms["ppm"],
                                    peakwidth = c(optPara_ms2_xcms["minimum peakwidth"], optPara_ms2_xcms["maximum peakwidth"]),
                                    prefilter = c(optPara_ms2_xcms["prefilter peaks"], optPara_ms2_xcms["noise filter"]))
-data_opt_ms1 <- xcms::findChromPeaks(data, param = cwp_opt_ms1, chunkSize = 3L, msLevel = 1L,
-                                     BPPARAM = BiocParallel::SnowParam(workers = 3L, type = "SOCK"))
+data_opt_ms1 <- xcms::findChromPeaks(data, param = cwp_opt_ms1, chunkSize = 1L, msLevel = 1L,
+                                     BPPARAM = BiocParallel::SnowParam(workers = 1L, type = "SOCK"))
+chromPeakTable_ms1 <- MetaboProcess::getChromPeakTable(data = data_opt_ms1, style = "xcms")
+i <- 600
+tmp <- xcms::chromPeakChromatograms(data_opt_ms1, peaks =  chromPeakTable_ms1$cpid[i], aggregationFun = "sum")
+max(tmp[1,1]@intensity, na.rm = TRUE)
+xcms::plot(tmp)
+chromPeakTable_ms1[i, ]$maxo
 
 # Peak shape filter
 neatms_res <- readr::read_csv("D:/fudan/Projects/2024/MetaboDeconv/Progress/build_package/generate_data/240722/neatms_output_ms1.csv")
