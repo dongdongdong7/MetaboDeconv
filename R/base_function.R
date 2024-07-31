@@ -289,7 +289,7 @@ cluster_peak <- function(ndata = ndata, chrDfList, cpid = NA, factor = 1, cosTh 
         return(nrow(x))
       }
     })
-    chrDfList_ms2 <- chrDfList_ms2[chrDfLength!=0]
+    chrDfList_ms2 <- chrDfList_ms2[chrDfLength>1]
   }
   if(length(chrDfList_ms2) == 0) return(list(ms1 = chrDfList_ms1, ms2 = NULL))
   #browser()
