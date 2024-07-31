@@ -15,7 +15,8 @@ Deconv4ndata(
   corTh = 0.8,
   noise_threshold = 0.05,
   method = "direct",
-  thread = 1
+  thread = 1,
+  cpN = NA
 )
 }
 \arguments{
@@ -40,6 +41,8 @@ Deconv4ndata(
 \item{method}{calCor_shape parameter, for align method.}
 
 \item{thread}{thread.}
+
+\item{cpN}{cpN is getChromPeaksDf's para for parallel.}
 }
 \value{
 A tibble with spectra.
@@ -69,7 +72,7 @@ xcms::chromPeaks(swath_data) <- as.matrix(chromPeaks_new)
 chromPeakData_new <- as.data.frame(chromPeakTable[, 13:ncol(chromPeakTable)])
 rownames(chromPeakData_new) <- chromPeakTable$cpid
 xcms::chromPeakData(swath_data) <- chromPeakData_new
-chrDfList <- getChromPeaksDf(ndata = swath_data, cpid = chromPeakTable$cpid, noise1 = 100, noise2 = 10)
+chrDfList <- getChromPeaksDf(ndata = swath_data, cpid = chromPeakTable$cpid, cpN = 100, noise1 = 100, noise2 = 10, thread = 3)
 clusterPeaks <- cluster_peak(ndata = swath_data,chrDfList = chrDfList, cpid = "CP34", factor = 1, method = "direct",noise_threshold = 0.01,
                              cosTh = 0.9, corTh = 0.9)
 sp <- peak2spectra(clusterPeaks)

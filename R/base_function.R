@@ -20,7 +20,7 @@
 # chromPeakData_new <- as.data.frame(chromPeakTable[, 13:ncol(chromPeakTable)])
 # rownames(chromPeakData_new) <- chromPeakTable$cpid
 # xcms::chromPeakData(swath_data) <- chromPeakData_new
-# chrDfList <- getChromPeaksDf(ndata = swath_data, cpid = chromPeakTable$cpid, noise1 = 100, noise2 = 10)
+# chrDfList <- getChromPeaksDf(ndata = swath_data, cpid = chromPeakTable$cpid, cpN = 100, noise1 = 100, noise2 = 10, thread = 3)
 # clusterPeaks0 <- cluster_peak(ndata = swath_data,chrDfList = chrDfList, cpid = "CP34", factor = 2, method = "direct",noise_threshold = 0.01,
 #                              cosTh = -1, corTh = -1)
 # plot_chrDfList(clusterPeaks0)
@@ -29,7 +29,7 @@
 # plot_chrDfList(clusterPeaks)
 # sp <- peak2spectra(clusterPeaks)
 # Spectra::plotSpectra(sp)
-# chromPeakTable_ms1 <- Deconv4ndata(ndata = swath_data, factor = 1,cosTh = 0.8, corTh = 0.8,noise1 = 100, noise2 = 10, noise_threshold = 0.01, method = "direct", thread = 1)
+# chromPeakTable_ms1 <- Deconv4ndata(ndata = swath_data, factor = 1,cosTh = 0.8, corTh = 0.8,noise1 = 100, noise2 = 10, noise_threshold = 0.01, method = "direct", thread = 3, cpN = 100)
 # DIA_spMat <- sp2spMat(chromPeakTable_ms1[9, ]$spectra[[1]])
 # DIA_spMat1 <- MetaboSpectra::clean_spMat(DIA_spMat)
 # DIA_spMat2 <- MetaboSpectra::clean_spMat(DIA_spMat, normalize_intensity = TRUE)
@@ -196,10 +196,52 @@ approx_chrDf <- function(chrDf_x, chrDf_y){
 
   return(list(chrDf_x = chrDf_x_new, chrDf_y = chrDf_y_new))
 }
-getChromPeaksDf <- function(ndata, cpid = NA, noise1 = 0, noise2 = 0, smooth = FALSE, size = 3, expandRt = 0, expandMz = 0){
-  tmp <- xcms::chromPeakChromatograms(ndata, peaks = cpid, expandRt = expandRt, expandMz = expandMz)
-  chrDfList <- lapply(1:nrow(tmp), function(i) {
-    XChr <- tmp[i, 1]
+getChromPeaksDf <- function(ndata, cpid = NA, cpN = NA, noise1 = 0, noise2 = 0, smooth = FALSE, size = 3, expandRt = 0, expandMz = 0, thread = 1){
+  #browser()
+  if(any(is.na(cpid))) stop("cpid has NA!")
+  if(is.na(cpN)){
+    tmp <- xcms::chromPeakChromatograms(ndata, peaks = cpid, expandRt = expandRt, expandMz = expandMz)
+    tmp <- lapply(1:nrow(tmp), function(j) {tmp[j, 1]})
+    names(tmp) <- cpid
+    return(tmp)
+  }
+  else{
+    blocks <- lapply(seq(1,length(cpid),cpN), function(start) {
+      end <- min(start + cpN - 1, length(cpid))
+      c(start,end)
+    })
+    loop <- function(i){
+      start <- blocks[[i]][1];end <- blocks[[i]][2]
+      tmp <- xcms::chromPeakChromatograms(ndata, peaks = cpid[start:end], expandRt = expandRt, expandMz = expandMz, progressbar = FALSE)
+      tmpList <- lapply(1:nrow(tmp), function(j) {tmp[j, 1]})
+      names(tmpList) <- cpid[start:end]
+      return(tmpList)
+    }
+    pb <- utils::txtProgressBar(max = length(blocks), style = 3)
+    if(thread == 1){
+      tmp <- lapply(1:length(blocks), function(i) {
+        utils::setTxtProgressBar(pb, i)
+        loop(i)
+      })
+      tmp <- purrr::list_flatten(tmp)
+    }else if(thread > 1){
+      cl <- snow::makeCluster(thread)
+      doSNOW::registerDoSNOW(cl)
+      opts <- list(progress = function(n) utils::setTxtProgressBar(pb,
+                                                                   n))
+      tmp <- foreach::`%dopar%`(foreach::foreach(i = 1:length(blocks),
+                                                 .packages = c("xcms"),
+                                                 .options.snow = opts),
+                                {
+                                  loop(i)
+                                })
+      snow::stopCluster(cl)
+      gc()
+      tmp <- purrr::list_flatten(tmp)
+    }
+  }
+  chrDfList <- lapply(1:length(tmp), function(i) {
+    XChr <- tmp[[i]]
     msLevel <- XChr@msLevel
     if(msLevel == 1) noise <- noise1
     else if(msLevel == 2) noise <- noise2
@@ -213,7 +255,7 @@ getChromPeaksDf <- function(ndata, cpid = NA, noise1 = 0, noise2 = 0, smooth = F
     if(smooth) chrDf$intensity <- smoothMean(chrDf$intensity, size = size)
     return(chrDf)
   })
-  names(chrDfList) <- cpid
+  names(chrDfList) <- names(tmp)
   return(chrDfList)
 }
 cluster_peak <- function(ndata = ndata, chrDfList, cpid = NA, factor = 1, cosTh = 0.8, corTh = 0.8, method = "direct", noise_threshold = 0.05){
@@ -299,6 +341,7 @@ peak2spectra <- function(clusterPeaks){
 #' @param noise2 noise for ms2 peak.
 #' @param noise_threshold noise threshold.
 #' @param method calCor_shape parameter, for align method.
+#' @param cpN cpN is getChromPeaksDf's para for parallel.
 #'
 #' @return A tibble with spectra.
 #' @export
@@ -325,7 +368,7 @@ peak2spectra <- function(clusterPeaks){
 #' chromPeakData_new <- as.data.frame(chromPeakTable[, 13:ncol(chromPeakTable)])
 #' rownames(chromPeakData_new) <- chromPeakTable$cpid
 #' xcms::chromPeakData(swath_data) <- chromPeakData_new
-#' chrDfList <- getChromPeaksDf(ndata = swath_data, cpid = chromPeakTable$cpid, noise1 = 100, noise2 = 10)
+#' chrDfList <- getChromPeaksDf(ndata = swath_data, cpid = chromPeakTable$cpid, cpN = 100, noise1 = 100, noise2 = 10, thread = 3)
 #' clusterPeaks <- cluster_peak(ndata = swath_data,chrDfList = chrDfList, cpid = "CP34", factor = 1, method = "direct",noise_threshold = 0.01,
 #'                              cosTh = 0.9, corTh = 0.9)
 #' sp <- peak2spectra(clusterPeaks)
@@ -345,14 +388,14 @@ peak2spectra <- function(clusterPeaks){
 #' MetaboSpectra::plotComparableSpectra(DIA_spMat1, fenamiphos_spMat1, num = 30, tol_da2 = 0.05)
 #' MetaboSpectra::compare_spMat_entropy(DIA_spMat2,fenamiphos_spMat2)
 #' MetaboSpectra::compare_spMat_ndotproduct(DIA_spMat1,fenamiphos_spMat1, joinpeak = "inner")
-Deconv4ndata <- function(ndata, smooth = FALSE, size = 3, factor = 0.5, noise1 = 0, noise2 = 0, cosTh = 0.8, corTh = 0.8, noise_threshold = 0.05, method = "direct",thread = 1){
+Deconv4ndata <- function(ndata, smooth = FALSE, size = 3, factor = 0.5, noise1 = 0, noise2 = 0, cosTh = 0.8, corTh = 0.8, noise_threshold = 0.05, method = "direct",thread = 1, cpN = NA){
   chromPeakTable <- chromPeakTable <- dplyr::as_tibble(cbind(xcms::chromPeaks(ndata),
                                                              xcms::chromPeakData(ndata)),
                                                        rownames = "cpid")
   chromPeakTable_ms1 <- chromPeakTable %>%
     dplyr::filter(ms_level == 1)
   #browser()
-  chrDfList <- getChromPeaksDf(ndata = ndata, cpid = chromPeakTable$cpid, noise1 = noise1, noise2 = noise2, smooth = smooth, size = size)
+  chrDfList <- getChromPeaksDf(ndata = ndata, cpid = chromPeakTable$cpid,cpN = cpN, noise1 = noise1, noise2 = noise2, smooth = smooth, size = size, thread = thread)
   loop <- function(x){
     clusterPeaks <- cluster_peak(ndata = ndata, chrDfList = chrDfList, cpid = x, factor = factor, cosTh = cosTh, corTh = corTh, method = method, noise_threshold = noise_threshold)
     if(is.null(clusterPeaks) | is.null(clusterPeaks$ms2) | length(clusterPeaks$ms2) == 0) return(NULL)
