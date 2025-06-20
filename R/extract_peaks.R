@@ -80,6 +80,7 @@ extract_ms1Peaks <- function(targetMz,
 #' @param dps_ms2 dps_ms2
 #' @param scanIndex_ms2 scanIndex_ms2
 #' @param rtime_ms2 rtime_ms2
+#' @export
 extract_ms2Peaks <- function(ms1PeakDT, fragmentMz,
                              dps_ms2, scanIndex_ms2, rtime_ms2,
                              ppm = 5,
