@@ -17,6 +17,7 @@
 #' @param noise noise
 #' @param r2thresh r2thresh
 #' @param peakWidthExtend peakWidthExtend
+#' @param fill_missing whether to fill in missing values in chromatogram
 #'
 #' @returns ms1PeaksDT
 #' @export
@@ -24,7 +25,8 @@ extract_ms1Peaks <- function(targetMz,
                              dps_ms1, scanIndex_ms1, rtime_ms1,
                              ppm = 5,
                              peakwidth = c(5, 20), snthresh = 3, noise = 100, r2thresh = 0.8,
-                             peakWidthExtend = 1){
+                             peakWidthExtend = 1,
+                             fill_missing = FALSE){
   targetMzRange <- lapply(targetMz, function(x) {
     tol_mz <- MsCoreUtils::ppm(x = x, ppm = ppm)
     c(x - tol_mz, x + tol_mz)
@@ -39,6 +41,7 @@ extract_ms1Peaks <- function(targetMz,
     intensity_ <- numeric(length(scanIndex_ms1))
     consensus_mz <- mean(c(dps_[which.max(dps_[, intensity]), mz], median(dps_[, mz])), na.rm = TRUE)
     intensity_[match(dps_[, scanIndex], scanIndex_ms1)] <- dps_[, intensity]
+    if(fill_missing) intensity_ <- fill_missing_signals(intensity = intensity_, gap = 1, noise = noise)
     ps_ <- findChromPeaks::findChromPeaks_CWT(int = intensity_, rt = rtime_ms1,
                                               peakwidth = peakwidth, snthresh = snthresh, noise = noise,
                                               r2thresh = r2thresh)
@@ -84,7 +87,8 @@ extract_ms1Peaks <- function(targetMz,
 extract_ms2Peaks <- function(ms1PeakDT, fragmentMz,
                              dps_ms2, scanIndex_ms2, rtime_ms2,
                              ppm = 5,
-                             peakwidth = c(5, 20), snthresh = 3, noise = 100, r2thresh = 0.8){
+                             peakwidth = c(5, 20), snthresh = 3, noise = 100, r2thresh = 0.8,
+                             fill_missing = FALSE){
   rtime_p_ini <- ms1PeakDT[1, rtime][[1]]
   l_p <- rtime_ms2 >= rtime_p_ini[1] & rtime_ms2 <= tail(rtime_p_ini, 1)
   scanIndex_p <- scanIndex_ms2[l_p]
@@ -108,6 +112,7 @@ extract_ms2Peaks <- function(ms1PeakDT, fragmentMz,
     median_mz <- median(dps_$mz, na.rm = TRUE)
     consensus_mz <- mean(c(max_intensity_mz, median_mz), na.rm = TRUE)
     intensity_[match(dps_$scanIndex, scanIndex_p)] <- dps_$intensity
+    if(fill_missing) intensity_ <- fill_missing_signals(intensity = intensity_, gap = 1, noise = noise)
     ps_ <- findChromPeaks::findChromPeaks_CWT(int = intensity_, rt = rtime_p,
                                               snthresh = snthresh, peakwidth = peakwidth, noise = noise,
                                               r2thresh = r2thresh)

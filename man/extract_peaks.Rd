@@ -15,7 +15,8 @@ extract_ms1Peaks(
   snthresh = 3,
   noise = 100,
   r2thresh = 0.8,
-  peakWidthExtend = 1
+  peakWidthExtend = 1,
+  fill_missing = FALSE
 )
 
 extract_ms2Peaks(
@@ -28,7 +29,8 @@ extract_ms2Peaks(
   peakwidth = c(5, 20),
   snthresh = 3,
   noise = 100,
-  r2thresh = 0.8
+  r2thresh = 0.8,
+  fill_missing = FALSE
 )
 }
 \arguments{
@@ -51,6 +53,8 @@ extract_ms2Peaks(
 \item{r2thresh}{r2thresh}
 
 \item{peakWidthExtend}{peakWidthExtend}
+
+\item{fill_missing}{whether to fill in missing values in chromatogram}
 
 \item{ms1PeakDT}{ms1PeakDT}
 
