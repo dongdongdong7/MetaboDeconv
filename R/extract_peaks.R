@@ -31,7 +31,14 @@ extract_ms1Peaks <- function(targetMz,
     tol_mz <- MsCoreUtils::ppm(x = x, ppm = ppm)
     c(x - tol_mz, x + tol_mz)
   })
+  pb <- progress::progress_bar$new(
+    format = "[:bar] :elapsed | progress: :percent",
+    total = length(targetMzRange),
+    clear = FALSE,
+    width = 60
+  )
   ms1PeaksDTList <- lapply(targetMzRange, function(mzrange_) {
+    pb$tick()
     dps_ <- dps_ms1[data.table::between(x = mz, lower = mzrange_[1], upper = mzrange_[2]), ]
     if(nrow(dps_) < 3) return(NULL)
     dps_ <- dps_[, .(
