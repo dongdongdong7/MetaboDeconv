@@ -1,3 +1,4 @@
+# This scropt will be removed
 # devtools::document()
 # load("D:/fudan/Projects/2024/MetaboDeconv/Progress/build_package/generate_data/test_data/swath_data.RData")
 # load("D:/fudan/Projects/2024/MetaboDeconv/Progress/build_package/generate_data/test_data/swath_spectra.RData")
