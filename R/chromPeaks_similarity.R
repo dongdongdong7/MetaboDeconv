@@ -1,15 +1,15 @@
+# Calculation of chromPeaks similarity
+# Barry Song
+# 20250620
+
 ccf_peak2peak <- function(intensity1, rtime1, intensity2, rtime2){
-  browser()
   rtime_interval <- round(mean(diff(rtime1)), 1)
-  rtime_approx <- seq(round(rtime1[1], 1), round(tail(rtime1, 1), 1), rtime_interval)
+  rtime_c <- c(rtime1, rtime2)
+  rtime_range <- round(c(min(rtime_c), max(rtime_c)), 1)
+  rtime_approx <- seq(rtime_range[1], rtime_range[2], rtime_interval)
   intensity1_ <- approx(rtime1, intensity1, xout = rtime_approx, rule = 2)$y
-  intensity1_s <- signal::sgolayfilt(intensity1_)
   intensity2_ <- approx(rtime2, intensity2, xout = rtime_approx, rule = 2)$y
-  intensity2_s <- signal::sgolayfilt(intensity2_)
-  intensity1_n <- intensity1_ / max(intensity1_)
-  intensity2_n <- intensity2_ / max(intensity2_)
-  ccfRes <- ccf(intensity1_s, intensity2_s, plot = FALSE, type = "correlation")
-  cor(x = intensity1_, y = intensity2_)
+  ccfRes <- ccf(intensity1_, intensity2_, plot = FALSE, type = "correlation")
   imax <- which.max(ccfRes$acf)
   c(ccfRes$acf[imax], ccfRes$lag[imax])
 }
@@ -51,7 +51,7 @@ ccf_ms1Peak_2_ms2Peaks <- function(ms1Peak, ms2PeaksList){
 #' @export
 #'
 #' @examples
-#' TODO: write examples
+#' ccfMatrix <- ccf_ms1PeakAms2Peaks(ms1PeakDT = ms1PeakDT, ms2PeaksDT = ms2PeaksDT)
 ccf_ms1PeakAms2Peaks <- function(ms1PeakDT, ms2PeaksDT){
   # calculate rtime interval
   rtime_interval <- round(mean(diff(ms1PeakDT[1, rtime][[1]])), 1)

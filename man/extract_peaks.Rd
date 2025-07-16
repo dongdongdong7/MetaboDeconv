@@ -36,11 +36,11 @@ extract_ms2Peaks(
 \arguments{
 \item{targetMz}{target m/z}
 
-\item{dps_ms1}{dps_ms1}
+\item{dps_ms1}{\code{data.table()} with mz, intensity, scanIndex}
 
-\item{scanIndex_ms1}{scanIndex ms1}
+\item{scanIndex_ms1}{scanIndex of ms1 spectra}
 
-\item{rtime_ms1}{rtime ms1}
+\item{rtime_ms1}{retention time of ms1 spectra}
 
 \item{ppm}{ppm}
 
@@ -56,19 +56,24 @@ extract_ms2Peaks(
 
 \item{fill_missing}{whether to fill in missing values in chromatogram}
 
-\item{ms1PeakDT}{ms1PeakDT}
+\item{ms1PeakDT}{\code{data.table()}, one row of ms1PeaksDT}
 
-\item{fragmentMz}{fragmentMz}
+\item{fragmentMz}{\code{numeric()}, fragment m/z of ms1 peak}
 
-\item{dps_ms2}{dps_ms2}
+\item{dps_ms2}{dps_ms2 \code{data.table()} with mz, intensity and scanIndex. Data points of ms2 spectra.}
 
-\item{scanIndex_ms2}{scanIndex_ms2}
+\item{scanIndex_ms2}{scanIndex_ms2 scanIndex of ms2 spectra}
 
-\item{rtime_ms2}{rtime_ms2}
+\item{rtime_ms2}{rtime_ms2 retention time of ms2 spectra}
 }
 \value{
-ms1PeaksDT
+ms1PeaksDT \code{data.table()} with mz, mzmin, mzmax, rt, rtmin, rtmax, into, intb, maxo, r2, intensity(list), rtime(list)
+
+ms2PeaksDT \code{data.table()} with mz, mzmin, mzmax, rt, rtmin, rtmax, maxo, intensity(list), rtime(list)
 }
 \description{
 Extract ms1 peaks from target mz or extract ms2 peaks from ms1PeaksDT
+}
+\examples{
+ms1PeaksDT <- extract_ms1Peaks()
 }

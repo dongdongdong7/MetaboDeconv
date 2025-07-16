@@ -7,14 +7,14 @@
 fill_missing_signals(intensity, gap = 1, noise = 100)
 }
 \arguments{
-\item{intensity}{`numeric()`, intensity vector}
+\item{intensity}{\code{numeric()}, intensity vector}
 
-\item{gap}{`integer(1)`, number of missing signals allowed in a chromatographic peak}
+\item{gap}{\code{integer(1)}, number of missing signals allowed in a chromatographic peak}
 
-\item{noise}{`numeric(1)`, noise value of chromatogram}
+\item{noise}{\code{numeric(1)}, noise value of chromatogram}
 }
 \value{
-`numeric()`, filled intensity vector
+\code{numeric()}, filled intensity vector
 }
 \description{
 Use approx function to fill missing signals for chromatographic peak

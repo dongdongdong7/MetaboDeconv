@@ -8,9 +8,9 @@
 #' Extract ms1 peaks from target mz or extract ms2 peaks from ms1PeaksDT
 #'
 #' @param targetMz target m/z
-#' @param dps_ms1 dps_ms1
-#' @param scanIndex_ms1 scanIndex ms1
-#' @param rtime_ms1 rtime ms1
+#' @param dps_ms1 `data.table()` with mz, intensity, scanIndex
+#' @param scanIndex_ms1 scanIndex of ms1 spectra
+#' @param rtime_ms1 retention time of ms1 spectra
 #' @param ppm ppm
 #' @param peakwidth peakwidth
 #' @param snthresh snthresh
@@ -19,8 +19,10 @@
 #' @param peakWidthExtend peakWidthExtend
 #' @param fill_missing whether to fill in missing values in chromatogram
 #'
-#' @returns ms1PeaksDT
+#' @returns ms1PeaksDT `data.table()` with mz, mzmin, mzmax, rt, rtmin, rtmax, into, intb, maxo, r2, intensity(list), rtime(list)
 #' @export
+#' @examples
+#' ms1PeaksDT <- extract_ms1Peaks()
 extract_ms1Peaks <- function(targetMz,
                              dps_ms1, scanIndex_ms1, rtime_ms1,
                              ppm = 5,
@@ -87,11 +89,12 @@ extract_ms1Peaks <- function(targetMz,
 }
 
 #' @rdname extract_peaks
-#' @param ms1PeakDT ms1PeakDT
-#' @param fragmentMz fragmentMz
-#' @param dps_ms2 dps_ms2
-#' @param scanIndex_ms2 scanIndex_ms2
-#' @param rtime_ms2 rtime_ms2
+#' @param ms1PeakDT `data.table()`, one row of ms1PeaksDT
+#' @param fragmentMz `numeric()`, fragment m/z of ms1 peak
+#' @param dps_ms2 dps_ms2 `data.table()` with mz, intensity and scanIndex. Data points of ms2 spectra.
+#' @param scanIndex_ms2 scanIndex_ms2 scanIndex of ms2 spectra
+#' @param rtime_ms2 rtime_ms2 retention time of ms2 spectra
+#' @return ms2PeaksDT `data.table()` with mz, mzmin, mzmax, rt, rtmin, rtmax, maxo, intensity(list), rtime(list)
 #' @export
 extract_ms2Peaks <- function(ms1PeakDT, fragmentMz,
                              dps_ms2, scanIndex_ms2, rtime_ms2,

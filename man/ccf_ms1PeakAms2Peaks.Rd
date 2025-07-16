@@ -7,17 +7,17 @@
 ccf_ms1PeakAms2Peaks(ms1PeakDT, ms2PeaksDT)
 }
 \arguments{
-\item{ms1PeakDT}{`data.table()`, a one row data.table with ms1 peak information
+\item{ms1PeakDT}{\code{data.table()}, a one row data.table with ms1 peak information
 (mz, mzmin, mzmax, rt, rtmin, rtmax, maxo, intensity, rtime)}
 
-\item{ms2PeaksDT}{`data.table()`, a data.table with ms2 peaks information corresponding ms1 peak}
+\item{ms2PeaksDT}{\code{data.table()}, a data.table with ms2 peaks information corresponding ms1 peak}
 }
 \value{
-`matrix()` with score, lag and maxo
+\code{matrix()} with score, lag and maxo
 }
 \description{
 Calculate ccf score matrix for ms1Peak and its corresponding ms2Peaks
 }
 \examples{
-TODO: write examples
+ccfMatrix <- ccf_ms1PeakAms2Peaks(ms1PeakDT = ms1PeakDT, ms2PeaksDT = ms2PeaksDT)
 }
