@@ -3,6 +3,7 @@
 export("%>%")
 export(ccf_ms1PeakAms2Peaks)
 export(data.table)
+export(electronic_denoising)
 export(extract_ms1Peaks)
 export(extract_ms2Peaks)
 export(fill_missing_signals)

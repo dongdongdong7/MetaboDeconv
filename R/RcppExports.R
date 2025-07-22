@@ -5,3 +5,7 @@
     .Call(`_MetaboDeconv_detect_missing_cpp`, intensity, gap, noise)
 }
 
+electronic_denoising_cpp <- function(msms) {
+    .Call(`_MetaboDeconv_electronic_denoising_cpp`, msms)
+}
+

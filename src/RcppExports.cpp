@@ -23,9 +23,21 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// electronic_denoising_cpp
+Rcpp::NumericMatrix electronic_denoising_cpp(Rcpp::NumericMatrix msms);
+RcppExport SEXP _MetaboDeconv_electronic_denoising_cpp(SEXP msmsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type msms(msmsSEXP);
+    rcpp_result_gen = Rcpp::wrap(electronic_denoising_cpp(msms));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_MetaboDeconv_detect_missing_cpp", (DL_FUNC) &_MetaboDeconv_detect_missing_cpp, 3},
+    {"_MetaboDeconv_electronic_denoising_cpp", (DL_FUNC) &_MetaboDeconv_electronic_denoising_cpp, 1},
     {NULL, NULL, 0}
 };
 
